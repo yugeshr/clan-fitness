@@ -55,15 +55,19 @@ export const clanMemberships = pgTable(
   (t) => [uniqueIndex("clan_memberships_user_clan_idx").on(t.userId, t.clanId)],
 );
 
-export const goals = pgTable("goals", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  type: checkInTypeEnum("type").notNull(),
-  targetValue: integer("target_value").notNull(),
-  period: goalPeriodEnum("period").notNull(),
-});
+export const goals = pgTable(
+  "goals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    type: checkInTypeEnum("type").notNull(),
+    targetValue: integer("target_value").notNull(),
+    period: goalPeriodEnum("period").notNull(),
+  },
+  (t) => [uniqueIndex("goals_user_type_idx").on(t.userId, t.type)],
+);
 
 export const checkIns = pgTable(
   "check_ins",

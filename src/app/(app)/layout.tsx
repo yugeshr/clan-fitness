@@ -2,6 +2,7 @@ import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BottomNav } from "@/components/shared/BottomNav";
 import { ClanSwitcher } from "@/components/shared/ClanSwitcher";
 import { getUserClans } from "@/features/clans";
 
@@ -14,16 +15,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3">
-        <Link href="/dashboard" className="font-bold">
-          Clan Fitness
+      <header className="flex items-center justify-between border-b border-surface-border px-6 py-3">
+        <Link href="/dashboard" className="font-sans text-lg font-bold tracking-tight text-foreground">
+          Clan <span className="text-accent">Fitness</span>
         </Link>
         <div className="flex items-center gap-4">
           <ClanSwitcher clans={memberships.map((m) => m.clan)} />
           <UserButton />
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-16 sm:pb-0">{children}</main>
+      <BottomNav clanId={memberships[0]?.clan.id} />
     </div>
   );
 }

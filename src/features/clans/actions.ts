@@ -75,3 +75,67 @@ export async function leaveClan(clanId: string) {
   revalidatePath("/dashboard");
   redirect("/dashboard");
 }
+
+export async function renameClan(
+  clanId: string,
+  _prevState: ClanActionState,
+  formData: FormData,
+): Promise<ClanActionState> {
+  const user = await getOrSyncCurrentUser();
+  if (!user) return { error: "Not signed in." };
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    return { error: "Only clan admins can rename the clan." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "Clan name is required." };
+  if (name.length > 60) return { error: "Clan name is too long." };
+
+  await db.update(clans).set({ name }).where(eq(clans.id, clanId));
+
+  revalidatePath(`/clans/${clanId}`);
+  revalidatePath(`/clans/${clanId}/manage`);
+}
+
+export async function removeMember(clanId: string, memberUserId: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only clan admins can remove members.");
+  }
+  if (memberUserId === user.id) {
+    throw new Error("Use 'Leave clan' to remove yourself.");
+  }
+
+  const target = await getClanMembership(memberUserId, clanId);
+  if (!target) throw new Error("That user is not a member of this clan.");
+
+  await db
+    .delete(clanMemberships)
+    .where(and(eq(clanMemberships.userId, memberUserId), eq(clanMemberships.clanId, clanId)));
+
+  revalidatePath(`/clans/${clanId}/manage`);
+}
+
+export async function regenerateInviteCode(clanId: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only clan admins can regenerate the invite code.");
+  }
+
+  let inviteCode = generateInviteCode();
+  for (let attempts = 0; attempts < 5 && (await getClanByInviteCode(inviteCode)); attempts++) {
+    inviteCode = generateInviteCode();
+  }
+
+  await db.update(clans).set({ inviteCode }).where(eq(clans.id, clanId));
+
+  revalidatePath(`/clans/${clanId}/manage`);
+}

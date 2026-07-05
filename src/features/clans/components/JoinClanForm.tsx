@@ -5,18 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { joinClanByInviteCode } from "../actions";
 
-export function JoinClanForm() {
+export function JoinClanForm({ defaultInviteCode }: { defaultInviteCode?: string }) {
   const [state, action, pending] = useActionState(joinClanByInviteCode, undefined);
 
   return (
     <form action={action} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label htmlFor="inviteCode" className="text-sm font-medium">
+        <label htmlFor="inviteCode" className="text-sm font-medium text-foreground">
           Invite code
         </label>
-        <Input id="inviteCode" name="inviteCode" required placeholder="e.g. Xk9mQ2pR7T" />
+        <Input
+          id="inviteCode"
+          name="inviteCode"
+          required
+          placeholder="e.g. Xk9mQ2pR7T"
+          defaultValue={defaultInviteCode}
+        />
       </div>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state?.error && <p className="text-sm text-danger">{state.error}</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Joining..." : "Join clan"}
       </Button>

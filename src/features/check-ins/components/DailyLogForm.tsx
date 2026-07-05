@@ -1,0 +1,84 @@
+"use client";
+
+import { useActionState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { logDailyCheckIn } from "../actions";
+import type { FoodStatus } from "../types";
+
+const STATUS_OPTIONS: { value: FoodStatus; label: string }[] = [
+  { value: "yes", label: "Hit it" },
+  { value: "no", label: "Missed it" },
+  { value: "partial", label: "Partial" },
+];
+
+export function DailyLogForm({
+  alreadyWorkedOut,
+  todaysSteps,
+  dailyStepsTarget,
+  currentFoodStatus,
+}: {
+  alreadyWorkedOut: boolean;
+  todaysSteps?: number;
+  dailyStepsTarget?: number;
+  currentFoodStatus?: FoodStatus;
+}) {
+  const [state, action, pending] = useActionState(logDailyCheckIn, undefined);
+
+  return (
+    <form action={action} className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h2 className="font-semibold text-foreground">Gym</h2>
+        {alreadyWorkedOut ? (
+          <p className="text-sm text-foreground-secondary">You already logged a workout today. 🔥</p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 text-sm text-foreground-secondary">
+              <input type="checkbox" name="workedOut" className="accent-accent" />
+              I worked out today 💪
+            </label>
+            <Input name="gymNote" placeholder="Optional note (e.g. leg day)" maxLength={200} />
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="font-semibold text-foreground">Steps</h2>
+        {dailyStepsTarget !== undefined && (
+          <p className="text-xs text-foreground-tertiary">
+            Goal: {dailyStepsTarget.toLocaleString()} steps/day
+          </p>
+        )}
+        <Input name="count" type="number" min={0} defaultValue={todaysSteps} placeholder="Steps today" />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="font-semibold text-foreground">Nutrition</h2>
+        <div className="flex gap-3">
+          {STATUS_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              className="flex items-center gap-1 text-sm text-foreground-secondary"
+            >
+              <input
+                type="radio"
+                name="status"
+                value={option.value}
+                defaultChecked={currentFoodStatus === option.value}
+                className="accent-accent"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+        <Input name="foodNote" placeholder="Optional note (e.g. meal prepped)" maxLength={200} />
+        <p className="text-xs text-foreground-muted">Nutrition is private by default — only visible to you.</p>
+      </div>
+
+      {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving..." : "Save today's log"}
+      </Button>
+    </form>
+  );
+}

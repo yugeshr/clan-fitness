@@ -8,11 +8,12 @@ export function ClanSwitcher({ clans, activeClanId }: { clans: ClanOption[]; act
   const router = useRouter();
 
   if (clans.length === 0) return null;
-  if (clans.length === 1) return <span className="text-sm font-medium">{clans[0].name}</span>;
+  if (clans.length === 1)
+    return <span className="text-sm font-semibold text-foreground">{clans[0].name}</span>;
 
   return (
     <select
-      className="rounded-md border border-neutral-300 px-2 py-1 text-sm"
+      className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-sm text-foreground"
       defaultValue={activeClanId ?? clans[0].id}
       onChange={(event) => router.push(`/clans/${event.target.value}`)}
     >

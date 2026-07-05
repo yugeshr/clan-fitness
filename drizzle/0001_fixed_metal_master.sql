@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "goals_user_type_idx" ON "goals" USING btree ("user_id","type");
