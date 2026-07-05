@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { goals } from "@/db/schema";
 import type { GoalType } from "./types";
@@ -13,4 +13,17 @@ export async function getUserGoal(userId: string, type: GoalType) {
     .from(goals)
     .where(and(eq(goals.userId, userId), eq(goals.type, type)));
   return goal ?? null;
+}
+
+export async function getGoalsForUsers(userIds: string[], type: GoalType) {
+  const targets = new Map<string, number>();
+  if (userIds.length === 0) return targets;
+
+  const rows = await db
+    .select({ userId: goals.userId, targetValue: goals.targetValue })
+    .from(goals)
+    .where(and(inArray(goals.userId, userIds), eq(goals.type, type)));
+
+  for (const row of rows) targets.set(row.userId, row.targetValue);
+  return targets;
 }

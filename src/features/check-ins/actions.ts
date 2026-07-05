@@ -103,5 +103,5 @@ export async function logDailyCheckIn(
     }
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/logs");
 }

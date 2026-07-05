@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-1 flex-col">
       <header className="flex items-center justify-between gap-3 border-b border-surface-border px-4 py-3 sm:px-6">
         <Link
-          href="/dashboard"
+          href="/logs"
           className="shrink-0 font-sans text-lg font-bold tracking-tight text-foreground"
         >
           Clan <span className="text-accent">Fitness</span>

@@ -16,7 +16,6 @@ export function BottomNav({ clanId }: { clanId?: string }) {
   const pathname = usePathname();
 
   const items: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: House, match: (p) => p === "/dashboard" },
     ...(clanId
       ? [
           {
@@ -25,6 +24,11 @@ export function BottomNav({ clanId }: { clanId?: string }) {
             icon: Activity,
             match: (p: string) => p === `/clans/${clanId}`,
           },
+        ]
+      : []),
+    { href: "/logs", label: "Logs", icon: House, match: (p) => p === "/logs" },
+    ...(clanId
+      ? [
           {
             href: `/clans/${clanId}/manage`,
             label: "Clan",

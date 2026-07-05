@@ -9,7 +9,7 @@ export default async function HomePage() {
 
   if (userId) {
     const clans = await getUserClans(userId);
-    redirect(clans.length > 0 ? "/dashboard" : "/onboarding");
+    redirect(clans.length > 0 ? "/logs" : "/onboarding");
   }
 
   return (

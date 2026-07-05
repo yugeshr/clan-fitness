@@ -3,8 +3,11 @@ import { db } from "@/db";
 import { reactions } from "@/db/schema";
 import type { ReactionSummary } from "./types";
 
-export async function getReactionsForCheckIns(checkInIds: string[], currentUserId: string) {
-  const summaries = new Map<string, ReactionSummary>();
+export async function getReactionsForCheckIns(
+  checkInIds: string[],
+  currentUserId: string,
+): Promise<Record<string, ReactionSummary>> {
+  const summaries: Record<string, ReactionSummary> = {};
   if (checkInIds.length === 0) return summaries;
 
   const rows = await db
@@ -13,12 +16,10 @@ export async function getReactionsForCheckIns(checkInIds: string[], currentUserI
     .where(inArray(reactions.checkInId, checkInIds));
 
   for (const row of rows) {
-    if (!summaries.has(row.checkInId)) summaries.set(row.checkInId, new Map());
-    const summary = summaries.get(row.checkInId)!;
-    const entry = summary.get(row.emoji) ?? { count: 0, reactedByMe: false };
+    const summary = (summaries[row.checkInId] ??= {});
+    const entry = (summary[row.emoji] ??= { count: 0, reactedByMe: false });
     entry.count++;
     if (row.userId === currentUserId) entry.reactedByMe = true;
-    summary.set(row.emoji, entry);
   }
 
   return summaries;

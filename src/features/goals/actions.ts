@@ -42,5 +42,5 @@ export async function setGoals(
   ]);
 
   revalidatePath("/profile");
-  revalidatePath("/dashboard");
+  revalidatePath("/logs");
 }

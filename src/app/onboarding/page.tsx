@@ -7,7 +7,7 @@ export default async function OnboardingPage() {
   if (!userId) redirect("/sign-in");
 
   const clans = await getUserClans(userId);
-  if (clans.length > 0) redirect("/dashboard");
+  if (clans.length > 0) redirect("/logs");
 
   return (
     <main className="mx-auto flex max-w-2xl flex-1 flex-col gap-10 px-6 py-12">

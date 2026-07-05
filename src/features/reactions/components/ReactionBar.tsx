@@ -6,7 +6,7 @@ export function ReactionBar({ checkInId, summary }: { checkInId: string; summary
   return (
     <div className="flex gap-1.5">
       {REACTION_EMOJIS.map((emoji) => {
-        const entry = summary?.get(emoji);
+        const entry = summary?.[emoji];
         return (
           <form key={emoji} action={toggleReaction.bind(null, checkInId, emoji)}>
             <button

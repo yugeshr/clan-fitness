@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { checkIns, users } from "@/db/schema";
 import type { CheckInType } from "./types";
 
-const FEED_PAGE_SIZE = 20;
+export const FEED_PAGE_SIZE = 20;
 
 function startOfToday() {
   const date = new Date();
@@ -30,6 +30,8 @@ export async function getClanFeed(clanId: string, before?: Date) {
     .orderBy(desc(checkIns.createdAt))
     .limit(FEED_PAGE_SIZE);
 }
+
+export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>[number];
 
 export async function getUsersLoggedToday(userIds: string[]) {
   if (userIds.length === 0) return new Set<string>();
@@ -58,15 +60,22 @@ export async function getUserWeeklyCount(userId: string, type: CheckInType) {
   return rows.length;
 }
 
-export async function getUserStreak(userId: string, type: CheckInType) {
+export async function getWeeklyCounts(userIds: string[], type: CheckInType) {
+  const counts = new Map<string, number>();
+  if (userIds.length === 0) return counts;
+
   const rows = await db
-    .select({ createdAt: checkIns.createdAt })
+    .select({ userId: checkIns.userId })
     .from(checkIns)
-    .where(and(eq(checkIns.userId, userId), eq(checkIns.type, type)))
-    .orderBy(desc(checkIns.createdAt));
+    .where(
+      and(inArray(checkIns.userId, userIds), eq(checkIns.type, type), gte(checkIns.createdAt, startOfWeek())),
+    );
 
-  const dayKeys = new Set(rows.map((row) => row.createdAt.toISOString().slice(0, 10)));
+  for (const row of rows) counts.set(row.userId, (counts.get(row.userId) ?? 0) + 1);
+  return counts;
+}
 
+function streakFromDayKeys(dayKeys: Set<string>) {
   const cursor = startOfToday();
   if (!dayKeys.has(cursor.toISOString().slice(0, 10))) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
@@ -78,4 +87,35 @@ export async function getUserStreak(userId: string, type: CheckInType) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return streak;
+}
+
+export async function getUserStreak(userId: string, type: CheckInType) {
+  const rows = await db
+    .select({ createdAt: checkIns.createdAt })
+    .from(checkIns)
+    .where(and(eq(checkIns.userId, userId), eq(checkIns.type, type)));
+
+  return streakFromDayKeys(new Set(rows.map((row) => row.createdAt.toISOString().slice(0, 10))));
+}
+
+export async function getStreaks(userIds: string[], type: CheckInType) {
+  const streaks = new Map<string, number>();
+  if (userIds.length === 0) return streaks;
+
+  const rows = await db
+    .select({ userId: checkIns.userId, createdAt: checkIns.createdAt })
+    .from(checkIns)
+    .where(and(inArray(checkIns.userId, userIds), eq(checkIns.type, type)));
+
+  const dayKeysByUser = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const dayKeys = dayKeysByUser.get(row.userId) ?? new Set<string>();
+    dayKeys.add(row.createdAt.toISOString().slice(0, 10));
+    dayKeysByUser.set(row.userId, dayKeys);
+  }
+
+  for (const userId of userIds) {
+    streaks.set(userId, streakFromDayKeys(dayKeysByUser.get(userId) ?? new Set()));
+  }
+  return streaks;
 }

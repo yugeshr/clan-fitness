@@ -1,3 +1,3 @@
 export const REACTION_EMOJIS = ["🔥", "👏", "💪"] as const;
 
-export type ReactionSummary = Map<string, { count: number; reactedByMe: boolean }>;
+export type ReactionSummary = Record<string, { count: number; reactedByMe: boolean }>;

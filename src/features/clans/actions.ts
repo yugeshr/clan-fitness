@@ -35,7 +35,7 @@ export async function createClan(
 
   await db.insert(clanMemberships).values({ userId: user.id, clanId: clan.id, role: "admin" });
 
-  revalidatePath("/dashboard");
+  revalidatePath("/logs");
   redirect(`/clans/${clan.id}`);
 }
 
@@ -60,7 +60,7 @@ export async function joinClanByInviteCode(
 
   await db.insert(clanMemberships).values({ userId: user.id, clanId: clan.id, role: "member" });
 
-  revalidatePath("/dashboard");
+  revalidatePath("/logs");
   redirect(`/clans/${clan.id}`);
 }
 
@@ -72,8 +72,8 @@ export async function leaveClan(clanId: string) {
     .delete(clanMemberships)
     .where(and(eq(clanMemberships.userId, user.id), eq(clanMemberships.clanId, clanId)));
 
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
+  revalidatePath("/logs");
+  redirect("/logs");
 }
 
 export async function renameClan(
