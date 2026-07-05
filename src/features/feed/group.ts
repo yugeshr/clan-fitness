@@ -11,7 +11,7 @@ export function describeCheckIn(type: string, value: unknown) {
     }
     case "steps": {
       const { count } = value as StepsCheckInValue;
-      return `Logged ${count.toLocaleString()} steps`;
+      return `Logged ${count.toLocaleString("en-US")} steps`;
     }
     case "food": {
       const { note } = value as FoodCheckInValue;
@@ -64,5 +64,5 @@ export function formatDayLabel(day: string) {
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   if (day === today) return "Today";
   if (day === yesterday) return "Yesterday";
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }

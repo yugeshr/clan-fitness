@@ -5,8 +5,8 @@ import { useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import type { FeedRow } from "@/features/check-ins";
 import type { FoodCheckInValue } from "@/features/check-ins/types";
-import { ReactionBar } from "@/features/reactions";
-import type { ReactionSummary } from "@/features/reactions";
+import { ReactionBar } from "@/features/reactions/components/ReactionBar";
+import type { ReactionSummary } from "@/features/reactions/types";
 import { loadMoreFeed } from "../actions";
 import { describeCheckIn, formatDayLabel, groupByDay, groupByUserAndDay, TYPE_ICON } from "../group";
 
@@ -66,7 +66,7 @@ export function FeedList({
                       className="shrink-0 text-xs text-foreground-muted"
                       dateTime={group.latestAt.toISOString()}
                     >
-                      {group.latestAt.toLocaleTimeString(undefined, {
+                      {group.latestAt.toLocaleTimeString("en-US", {
                         hour: "numeric",
                         minute: "2-digit",
                       })}

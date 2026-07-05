@@ -74,7 +74,7 @@ export function DailyLogForm({
         <h2 className="font-semibold text-foreground">Steps</h2>
         {dailyStepsTarget !== undefined && (
           <p className="text-xs text-foreground-tertiary">
-            Goal: {dailyStepsTarget.toLocaleString()} steps/day
+            Goal: {dailyStepsTarget.toLocaleString("en-US")} steps/day
           </p>
         )}
         <Input name="count" type="number" min={0} defaultValue={todaysSteps} placeholder="Steps today" />
