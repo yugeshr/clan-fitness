@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "clan_memberships_one_admin_idx" ON "clan_memberships" USING btree ("clan_id") WHERE "clan_memberships"."role" = 'admin';

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -52,7 +53,12 @@ export const clanMemberships = pgTable(
     role: clanRoleEnum("role").notNull().default("member"),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("clan_memberships_user_clan_idx").on(t.userId, t.clanId)],
+  (t) => [
+    uniqueIndex("clan_memberships_user_clan_idx").on(t.userId, t.clanId),
+    uniqueIndex("clan_memberships_one_admin_idx")
+      .on(t.clanId)
+      .where(sql`${t.role} = 'admin'`),
+  ],
 );
 
 export const goals = pgTable(

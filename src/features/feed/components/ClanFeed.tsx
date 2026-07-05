@@ -106,10 +106,15 @@ export async function ClanFeed({ clanId }: { clanId: string }) {
                 className="flex items-start gap-3 rounded-lg border border-surface-border bg-surface p-3"
               >
                 <Avatar src={group.user.avatarUrl} name={group.user.name} />
-                <div className="flex flex-1 flex-col gap-1">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground">{group.user.name}</span>
-                    <time className="text-xs text-foreground-muted" dateTime={group.latestAt.toISOString()}>
+                    <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                      {group.user.name}
+                    </span>
+                    <time
+                      className="shrink-0 text-xs text-foreground-muted"
+                      dateTime={group.latestAt.toISOString()}
+                    >
                       {group.latestAt.toLocaleTimeString(undefined, {
                         hour: "numeric",
                         minute: "2-digit",

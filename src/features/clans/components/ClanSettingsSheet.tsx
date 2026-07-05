@@ -25,7 +25,7 @@ export function ClanSettingsSheet({
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Clan settings"
-        className="text-foreground-tertiary hover:text-foreground"
+        className="-m-2.5 p-2.5 text-foreground-tertiary hover:text-foreground"
       >
         <Settings size={20} />
       </button>

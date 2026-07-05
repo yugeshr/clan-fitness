@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { compressImage } from "@/lib/compress-image";
 import { logDailyCheckIn } from "../actions";
 import type { FoodStatus } from "../types";
 
@@ -26,6 +27,23 @@ export function DailyLogForm({
   currentFoodStatus?: FoodStatus;
 }) {
   const [state, action, pending] = useActionState(logDailyCheckIn, undefined);
+  const [compressing, setCompressing] = useState(false);
+
+  async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    setCompressing(true);
+    try {
+      const compressed = await compressImage(file);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(compressed);
+      input.files = dataTransfer.files;
+    } finally {
+      setCompressing(false);
+    }
+  }
 
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -64,7 +82,7 @@ export function DailyLogForm({
 
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold text-foreground">Nutrition</h2>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {STATUS_OPTIONS.map((option) => (
             <label
               key={option.value}
@@ -91,13 +109,15 @@ export function DailyLogForm({
             type="file"
             name="foodPhoto"
             accept="image/*"
+            onChange={handlePhotoChange}
             className="text-sm text-foreground-secondary file:mr-3 file:rounded-none file:border file:border-surface-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
           />
+          {compressing && <p className="text-xs text-foreground-muted">Compressing photo...</p>}
         </div>
       </div>
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || compressing}>
         {pending ? "Saving..." : "Save today's log"}
       </Button>
     </form>

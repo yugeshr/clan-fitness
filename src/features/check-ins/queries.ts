@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { checkIns, users } from "@/db/schema";
 import type { CheckInType } from "./types";
@@ -29,6 +29,17 @@ export async function getClanFeed(clanId: string, before?: Date) {
     .where(and(...conditions))
     .orderBy(desc(checkIns.createdAt))
     .limit(FEED_PAGE_SIZE);
+}
+
+export async function getUsersLoggedToday(userIds: string[]) {
+  if (userIds.length === 0) return new Set<string>();
+
+  const rows = await db
+    .selectDistinct({ userId: checkIns.userId })
+    .from(checkIns)
+    .where(and(inArray(checkIns.userId, userIds), gte(checkIns.createdAt, startOfToday())));
+
+  return new Set(rows.map((row) => row.userId));
 }
 
 export async function getTodaysCheckIn(userId: string, type: CheckInType) {

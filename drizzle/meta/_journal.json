@@ -15,6 +15,13 @@
       "when": 1783266796735,
       "tag": "0001_fixed_metal_master",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783272862420,
+      "tag": "0002_brown_catseye",
+      "breakpoints": true
     }
   ]
 }

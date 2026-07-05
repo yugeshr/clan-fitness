@@ -66,11 +66,11 @@ export function BottomSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="bottom-sheet-title"
-        className={`relative z-10 w-full max-w-2xl rounded-t-2xl border-t border-surface-border bg-surface p-5 pb-8 transition-transform duration-200 ${
+        className={`relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-2xl border-t border-surface-border bg-surface p-5 pb-[calc(2rem+env(safe-area-inset-bottom))] transition-transform duration-200 ${
           visible ? "translate-y-0" : "translate-y-full"
         }`}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <h2 id="bottom-sheet-title" ref={headingRef} tabIndex={-1} className="font-semibold text-foreground">
             {title}
           </h2>
@@ -78,12 +78,12 @@ export function BottomSheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-foreground-tertiary hover:text-foreground"
+            className="-m-2.5 p-2.5 text-foreground-tertiary hover:text-foreground"
           >
             <X size={20} />
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto">{children}</div>
       </div>
     </div>,
     document.body,

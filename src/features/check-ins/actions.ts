@@ -24,7 +24,7 @@ async function uploadPhoto(
   const photo = formData.get(fieldName);
   if (!(photo instanceof File) || photo.size === 0) return {};
   if (!photo.type.startsWith("image/")) return { error: "Photo must be an image." };
-  if (photo.size > 5 * 1024 * 1024) return { error: "Photo must be under 5MB." };
+  if (photo.size > 4 * 1024 * 1024) return { error: "Photo must be under 4MB." };
 
   const blob = await put(`check-ins/${photo.name}`, photo, { access: "public", addRandomSuffix: true });
   return { url: blob.url };

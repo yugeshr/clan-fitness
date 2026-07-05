@@ -2,6 +2,7 @@ export {
   createClan,
   joinClanByInviteCode,
   leaveClan,
+  makeAdmin,
   regenerateInviteCode,
   removeMember,
   renameClan,
@@ -17,5 +18,6 @@ export {
 export { ClanSettingsSheet } from "./components/ClanSettingsSheet";
 export { CreateClanForm } from "./components/CreateClanForm";
 export { JoinClanForm } from "./components/JoinClanForm";
+export { MemberActionsSheet } from "./components/MemberActionsSheet";
 export { RenameClanForm } from "./components/RenameClanForm";
 export { ShareInviteButton } from "./components/ShareInviteButton";

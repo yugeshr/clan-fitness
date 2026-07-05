@@ -121,6 +121,32 @@ export async function removeMember(clanId: string, memberUserId: string) {
   revalidatePath(`/clans/${clanId}/manage`);
 }
 
+export async function makeAdmin(clanId: string, targetUserId: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only the clan admin can transfer admin.");
+  }
+  if (targetUserId === user.id) throw new Error("You're already the admin.");
+
+  const target = await getClanMembership(targetUserId, clanId);
+  if (!target) throw new Error("That user is not a member of this clan.");
+
+  // Two sequential updates, not a transaction (the Neon HTTP driver doesn't support them) — demote
+  // first so the "one admin per clan" partial unique index never sees two admin rows at once. A
+  // combined single-statement CASE update was tried and confirmed unsafe: Postgres checks the
+  // partial unique index per-row as it processes an UPDATE, not once at the end, so whichever row
+  // happens to be processed first determines whether it spuriously conflicts with the other row's
+  // not-yet-updated value. Worst case if this fails between the two steps is zero admins, not a
+  // constraint violation or two admins — a safe, recoverable failure mode.
+  await db.update(clanMemberships).set({ role: "member" }).where(eq(clanMemberships.id, membership.id));
+  await db.update(clanMemberships).set({ role: "admin" }).where(eq(clanMemberships.id, target.id));
+
+  revalidatePath(`/clans/${clanId}/manage`);
+}
+
 export async function regenerateInviteCode(clanId: string) {
   const user = await getOrSyncCurrentUser();
   if (!user) throw new Error("Not signed in.");

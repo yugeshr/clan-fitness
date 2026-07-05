@@ -15,16 +15,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-surface-border px-6 py-3">
-        <Link href="/dashboard" className="font-sans text-lg font-bold tracking-tight text-foreground">
+      <header className="flex items-center justify-between gap-3 border-b border-surface-border px-4 py-3 sm:px-6">
+        <Link
+          href="/dashboard"
+          className="shrink-0 font-sans text-lg font-bold tracking-tight text-foreground"
+        >
           Clan <span className="text-accent">Fitness</span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <ClanSwitcher clans={memberships.map((m) => m.clan)} />
           <UserButton />
         </div>
       </header>
-      <main className="flex-1 pb-16 sm:pb-0">{children}</main>
+      <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">{children}</main>
       <BottomNav clanId={memberships[0]?.clan.id} />
     </div>
   );

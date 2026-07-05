@@ -37,7 +37,7 @@ export function BottomNav({ clanId }: { clanId?: string }) {
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-surface-border bg-surface sm:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-surface-border bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">
       {items.map((item) => {
         const Icon = item.icon;
         const active = item.match(pathname);
@@ -45,7 +45,7 @@ export function BottomNav({ clanId }: { clanId?: string }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-semibold ${
+            className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold ${
               active ? "text-accent" : "text-foreground-tertiary"
             }`}
           >
