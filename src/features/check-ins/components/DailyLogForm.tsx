@@ -14,11 +14,13 @@ const STATUS_OPTIONS: { value: FoodStatus; label: string }[] = [
 
 export function DailyLogForm({
   alreadyWorkedOut,
+  existingGymNote,
   todaysSteps,
   dailyStepsTarget,
   currentFoodStatus,
 }: {
   alreadyWorkedOut: boolean;
+  existingGymNote?: string;
   todaysSteps?: number;
   dailyStepsTarget?: number;
   currentFoodStatus?: FoodStatus;
@@ -30,7 +32,15 @@ export function DailyLogForm({
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold text-foreground">Gym</h2>
         {alreadyWorkedOut ? (
-          <p className="text-sm text-foreground-secondary">You already logged a workout today. 🔥</p>
+          <>
+            <p className="text-sm text-foreground-secondary">You already logged a workout today. 🔥</p>
+            <Input
+              name="gymNote"
+              placeholder="Update note (e.g. leg day)"
+              maxLength={200}
+              defaultValue={existingGymNote}
+            />
+          </>
         ) : (
           <>
             <label className="flex items-center gap-2 text-sm text-foreground-secondary">
@@ -72,7 +82,18 @@ export function DailyLogForm({
           ))}
         </div>
         <Input name="foodNote" placeholder="Optional note (e.g. meal prepped)" maxLength={200} />
-        <p className="text-xs text-foreground-muted">Nutrition is private by default — only visible to you.</p>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="foodPhoto" className="text-xs text-foreground-tertiary">
+            Optional photo
+          </label>
+          <input
+            id="foodPhoto"
+            type="file"
+            name="foodPhoto"
+            accept="image/*"
+            className="text-sm text-foreground-secondary file:mr-3 file:rounded-none file:border file:border-surface-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
+          />
+        </div>
       </div>
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}

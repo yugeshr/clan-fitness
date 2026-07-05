@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import Image from "next/image";
 import { Avatar } from "@/components/shared/Avatar";
 import { getClanFeed } from "@/features/check-ins";
 import type { FoodCheckInValue, GymCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
@@ -48,6 +49,30 @@ function groupByUserAndDay(rows: FeedRow[]) {
   return [...groups.values()].sort((a, b) => b.latestAt.getTime() - a.latestAt.getTime());
 }
 
+type DayGroup = ReturnType<typeof groupByUserAndDay>[number];
+
+function groupByDay(groups: DayGroup[]) {
+  const sections: { day: string; cards: DayGroup[] }[] = [];
+  for (const group of groups) {
+    const last = sections[sections.length - 1];
+    if (last && last.day === group.day) {
+      last.cards.push(group);
+    } else {
+      sections.push({ day: group.day, cards: [group] });
+    }
+  }
+  return sections;
+}
+
+function formatDayLabel(day: string) {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (day === today) return "Today";
+  if (day === yesterday) return "Yesterday";
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+}
+
 export async function ClanFeed({ clanId }: { clanId: string }) {
   const { userId } = await auth();
   const rows = await getClanFeed(clanId);
@@ -59,6 +84,7 @@ export async function ClanFeed({ clanId }: { clanId: string }) {
   }
 
   const groups = groupByUserAndDay(rows);
+  const sections = groupByDay(groups);
   const reactionSummaries = userId
     ? await getReactionsForCheckIns(
         rows.map((row) => row.checkIn.id),
@@ -67,33 +93,60 @@ export async function ClanFeed({ clanId }: { clanId: string }) {
     : new Map();
 
   return (
-    <ul className="flex flex-col gap-3">
-      {groups.map((group) => (
-        <li
-          key={`${group.user.id}:${group.day}`}
-          className="flex items-start gap-3 rounded-lg border border-surface-border bg-surface p-3"
-        >
-          <Avatar src={group.user.avatarUrl} name={group.user.name} />
-          <div className="flex flex-1 flex-col gap-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-foreground">{group.user.name}</span>
-              <time className="text-xs text-foreground-muted" dateTime={group.latestAt.toISOString()}>
-                {group.latestAt.toLocaleString()}
-              </time>
-            </div>
-            {group.entries.map((checkIn) => (
-              <p key={checkIn.id} className="flex items-center gap-1.5 text-sm text-foreground-secondary">
-                <span aria-hidden>{TYPE_ICON[checkIn.type] ?? "✅"}</span>
-                {describeCheckIn(checkIn.type, checkIn.value)}
-              </p>
+    <div className="flex flex-col gap-6">
+      {sections.map((section) => (
+        <section key={section.day} className="flex flex-col gap-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground-tertiary">
+            {formatDayLabel(section.day)}
+          </h3>
+          <ul className="flex flex-col gap-3">
+            {section.cards.map((group) => (
+              <li
+                key={group.user.id}
+                className="flex items-start gap-3 rounded-lg border border-surface-border bg-surface p-3"
+              >
+                <Avatar src={group.user.avatarUrl} name={group.user.name} />
+                <div className="flex flex-1 flex-col gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-foreground">{group.user.name}</span>
+                    <time className="text-xs text-foreground-muted" dateTime={group.latestAt.toISOString()}>
+                      {group.latestAt.toLocaleTimeString(undefined, {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </div>
+                  {group.entries.map((checkIn) => {
+                    const photoUrl =
+                      checkIn.type === "food" ? (checkIn.value as FoodCheckInValue).photoUrl : undefined;
+                    return (
+                      <div key={checkIn.id} className="flex flex-col gap-2">
+                        <p className="flex items-center gap-1.5 text-sm text-foreground-secondary">
+                          <span aria-hidden>{TYPE_ICON[checkIn.type] ?? "✅"}</span>
+                          {describeCheckIn(checkIn.type, checkIn.value)}
+                        </p>
+                        {photoUrl && (
+                          <Image
+                            src={photoUrl}
+                            alt=""
+                            width={320}
+                            height={240}
+                            className="max-h-60 w-full max-w-xs rounded-lg border border-surface-border object-cover"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                  <ReactionBar
+                    checkInId={group.entries[0].id}
+                    summary={reactionSummaries.get(group.entries[0].id)}
+                  />
+                </div>
+              </li>
             ))}
-            <ReactionBar
-              checkInId={group.entries[0].id}
-              summary={reactionSummaries.get(group.entries[0].id)}
-            />
-          </div>
-        </li>
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   );
 }

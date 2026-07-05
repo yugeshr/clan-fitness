@@ -7,7 +7,7 @@ import {
   getUserStreak,
   getUserWeeklyCount,
 } from "@/features/check-ins";
-import type { FoodCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
+import type { FoodCheckInValue, GymCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
 import { getUserClans } from "@/features/clans";
 import { getUserGoals } from "@/features/goals";
 
@@ -27,6 +27,7 @@ export default async function DashboardPage() {
     ]);
 
   const primaryClan = clans[0]?.clan;
+  const gymValue = gymCheckIn?.value as GymCheckInValue | undefined;
   const stepsValue = stepsCheckIn?.value as StepsCheckInValue | undefined;
   const foodValue = foodCheckIn?.value as FoodCheckInValue | undefined;
   const gymGoal = goals.find((g) => g.type === "gym");
@@ -57,6 +58,7 @@ export default async function DashboardPage() {
 
       <DailyLogForm
         alreadyWorkedOut={!!gymCheckIn}
+        existingGymNote={gymValue?.note}
         todaysSteps={stepsValue?.count}
         dailyStepsTarget={dailyStepsTarget}
         currentFoodStatus={foodValue?.status}

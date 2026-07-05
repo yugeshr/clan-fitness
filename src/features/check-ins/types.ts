@@ -4,4 +4,4 @@ export type FoodStatus = "yes" | "no" | "partial";
 
 export type GymCheckInValue = { note?: string; durationMinutes?: number };
 export type StepsCheckInValue = { count: number };
-export type FoodCheckInValue = { status: FoodStatus; note?: string };
+export type FoodCheckInValue = { status: FoodStatus; note?: string; photoUrl?: string };
