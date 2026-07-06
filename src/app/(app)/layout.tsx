@@ -20,19 +20,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-surface-border px-4 py-3 sm:px-6">
-        <Link
-          href="/logs"
-          className="shrink-0 font-sans text-lg font-bold tracking-tight text-foreground"
-        >
-          Clan <span className="text-accent">Fitness</span>
-        </Link>
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <ClanSwitcher clans={memberships.map((m) => m.clan)} />
-          <UserButton />
+      <header className="fixed inset-x-0 top-0 z-10 border-b border-surface-border bg-surface pt-[env(safe-area-inset-top)]">
+        <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+          <Link
+            href="/logs"
+            className="shrink-0 font-sans text-lg font-bold tracking-tight text-foreground"
+          >
+            Clan <span className="text-accent">Fitness</span>
+          </Link>
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <ClanSwitcher clans={memberships.map((m) => m.clan)} />
+            <UserButton />
+          </div>
         </div>
       </header>
-      <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">{children}</main>
+      <main className="flex-1 pt-[calc(4rem+env(safe-area-inset-top))] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
+        {children}
+      </main>
       <BottomNav clanId={memberships[0]?.clan.id} />
       <AutoEnableNotifications />
     </div>

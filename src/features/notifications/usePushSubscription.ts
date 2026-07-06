@@ -10,7 +10,16 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from(rawData, (char) => char.charCodeAt(0));
 }
 
-export type PushSupport = "checking" | "supported" | "unsupported";
+export type PushSupport = "checking" | "supported" | "unsupported" | "ios-needs-install";
+
+/** iOS Safari only exposes the Push API to web apps installed to the Home Screen (standalone display mode). */
+function isIosNotInstalled() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return isIOS && !isStandalone;
+}
 
 /** Shared client-side push subscription state, used by both the manual opt-in UI and the auto-prompt on app load. */
 export function usePushSubscription() {
@@ -23,7 +32,7 @@ export function usePushSubscription() {
     // Feature detection can only run client-side after mount; SSR must render the "checking" state first.
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSupport("unsupported");
+      setSupport(isIosNotInstalled() ? "ios-needs-install" : "unsupported");
       return;
     }
     setSupport("supported");

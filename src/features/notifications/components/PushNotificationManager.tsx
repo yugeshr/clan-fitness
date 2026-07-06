@@ -39,7 +39,23 @@ export function PushNotificationManager({
     onSkip?.();
   }
 
-  if (support !== "supported") return null;
+  if (support === "checking" || support === "unsupported") return null;
+
+  if (support === "ios-needs-install") {
+    return (
+      <div className={`flex flex-col gap-3 ${className}`}>
+        <p className="text-sm text-foreground-secondary">
+          To get notifications on iPhone or iPad, add Clan Fitness to your Home Screen first: tap the
+          Share button, then &quot;Add to Home Screen&quot;. Open it from there to turn notifications on.
+        </p>
+        {onSkip && (
+          <button type="button" onClick={handleSkip} className="self-start text-sm text-foreground-tertiary underline">
+            Not now
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
