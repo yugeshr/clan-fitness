@@ -2,8 +2,10 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/db";
 import { checkIns, comments } from "@/db/schema";
+import { notifyUser } from "@/features/notifications/send";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { COMMENT_MAX_LENGTH } from "./types";
 import type { CommentWithUser } from "./queries";
@@ -21,12 +23,25 @@ export async function addComment(
     return { error: `Keep it under ${COMMENT_MAX_LENGTH} characters.` };
   }
 
-  const [checkIn] = await db.select({ clanId: checkIns.clanId }).from(checkIns).where(eq(checkIns.id, checkInId));
+  const [checkIn] = await db
+    .select({ clanId: checkIns.clanId, userId: checkIns.userId })
+    .from(checkIns)
+    .where(eq(checkIns.id, checkInId));
   if (!checkIn) return { error: "Check-in not found." };
 
   const [row] = await db.insert(comments).values({ checkInId, userId: user.id, text: trimmed }).returning();
 
   if (checkIn.clanId) revalidatePath(`/clans/${checkIn.clanId}`);
+
+  if (checkIn.userId !== user.id) {
+    after(() =>
+      notifyUser(checkIn.userId, {
+        title: `${user.name} commented on your check-in`,
+        body: trimmed,
+        url: checkIn.clanId ? `/clans/${checkIn.clanId}` : "/logs",
+      }),
+    );
+  }
 
   return {
     comment: {

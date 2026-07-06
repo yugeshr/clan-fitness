@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/shared/BottomNav";
 import { ClanSwitcher } from "@/components/shared/ClanSwitcher";
 import { getUserClans } from "@/features/clans";
 import { getUserGoals } from "@/features/goals";
+import { AutoEnableNotifications } from "@/features/notifications";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { userId } = await auth();
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">{children}</main>
       <BottomNav clanId={memberships[0]?.clan.id} />
+      <AutoEnableNotifications />
     </div>
   );
 }

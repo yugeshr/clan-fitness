@@ -3,12 +3,31 @@
 import { put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/db";
 import { checkIns } from "@/db/schema";
-import { getUserClans } from "@/features/clans/queries";
+import { getClanMembers, getUserClans } from "@/features/clans/queries";
+import { notifyUser } from "@/features/notifications/send";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { getTodaysCheckIn } from "./queries";
-import type { FoodCheckInValue, FoodStatus } from "./types";
+import type { CheckInType, FoodCheckInValue, FoodStatus } from "./types";
+
+async function notifyClanOfCheckIn(clanId: string, actorId: string, actorName: string, types: CheckInType[]) {
+  if (types.length === 0) return;
+  const members = await getClanMembers(clanId);
+  const label = types.join(", ");
+  await Promise.all(
+    members
+      .filter((m) => m.user.id !== actorId)
+      .map((m) =>
+        notifyUser(m.user.id, {
+          title: `${actorName} checked in`,
+          body: `Logged: ${label}`,
+          url: `/clans/${clanId}`,
+        }),
+      ),
+  );
+}
 
 export type CheckInActionState = { error?: string } | undefined;
 
@@ -48,6 +67,7 @@ export async function logDailyCheckIn(
 
   const workedOut = formData.get("workedOut") === "on";
   const clanId = await getPrimaryClanId(user.id);
+  const newlyLoggedTypes: CheckInType[] = [];
 
   const existingGym = await getTodaysCheckIn(user.id, "gym");
   if (workedOut || existingGym) {
@@ -62,6 +82,7 @@ export async function logDailyCheckIn(
         value: { note: gymNote },
         visibility: "public_to_clan",
       });
+      newlyLoggedTypes.push("gym");
     }
   }
 
@@ -77,6 +98,7 @@ export async function logDailyCheckIn(
         value: { count },
         visibility: "public_to_clan",
       });
+      newlyLoggedTypes.push("steps");
     }
   }
 
@@ -100,8 +122,11 @@ export async function logDailyCheckIn(
         value: { status, note: foodNote, photoUrl: newFoodPhotoUrl },
         visibility: "public_to_clan",
       });
+      newlyLoggedTypes.push("food");
     }
   }
+
+  if (clanId) after(() => notifyClanOfCheckIn(clanId, user.id, user.name, newlyLoggedTypes));
 
   revalidatePath("/logs");
 }

@@ -10,21 +10,24 @@ export function GoalsForm({
   gymTarget,
   stepsTarget,
   redirectOnSuccessTo,
+  onSuccess,
 }: {
   gymTarget?: number;
   stepsTarget?: number;
   redirectOnSuccessTo?: string;
+  onSuccess?: () => void;
 }) {
   const [state, action, pending] = useActionState(setGoals, undefined);
   const router = useRouter();
   const wasPending = useRef(false);
 
   useEffect(() => {
-    if (wasPending.current && !pending && !state?.error && redirectOnSuccessTo) {
-      router.push(redirectOnSuccessTo);
+    if (wasPending.current && !pending && !state?.error) {
+      if (redirectOnSuccessTo) router.push(redirectOnSuccessTo);
+      onSuccess?.();
     }
     wasPending.current = pending;
-  }, [pending, state, redirectOnSuccessTo, router]);
+  }, [pending, state, redirectOnSuccessTo, onSuccess, router]);
 
   return (
     <form action={action} className="flex flex-col gap-6">

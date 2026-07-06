@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getUserGoals, GoalsForm } from "@/features/goals";
+import { PushNotificationManager } from "@/features/notifications";
 import { calculateAge, calculateBmi, getProfileDetails, ProfileDetailsForm } from "@/features/profile";
 
 const CM_PER_INCH = 2.54;
@@ -64,6 +65,11 @@ export default async function ProfilePage() {
           unitsPreference={unitsPreference}
           bio={details?.bio ?? undefined}
         />
+      </section>
+
+      <section className="flex flex-col gap-4 border-t border-surface-border pt-8">
+        <h2 className="font-semibold text-foreground">Notifications</h2>
+        <PushNotificationManager />
       </section>
     </div>
   );

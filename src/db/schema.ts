@@ -130,3 +130,18 @@ export const comments = pgTable("comments", {
   text: text("text").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("push_subscriptions_user_idx").on(t.userId)],
+);

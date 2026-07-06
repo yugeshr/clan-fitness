@@ -1,0 +1,38 @@
+"use server";
+
+import { and, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { pushSubscriptions } from "@/db/schema";
+import { getOrSyncCurrentUser } from "@/lib/current-user";
+import type { PushSubscriptionInput } from "./types";
+
+export async function subscribeToPush(subscription: PushSubscriptionInput): Promise<{ error?: string }> {
+  const user = await getOrSyncCurrentUser();
+  if (!user) return { error: "Not signed in." };
+
+  await db
+    .insert(pushSubscriptions)
+    .values({
+      userId: user.id,
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+    })
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: { userId: user.id, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+    });
+
+  return {};
+}
+
+export async function unsubscribeFromPush(endpoint: string): Promise<{ error?: string }> {
+  const user = await getOrSyncCurrentUser();
+  if (!user) return { error: "Not signed in." };
+
+  await db
+    .delete(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, user.id)));
+
+  return {};
+}
