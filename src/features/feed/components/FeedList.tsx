@@ -6,6 +6,7 @@ import { Avatar } from "@/components/shared/Avatar";
 import type { FeedRow } from "@/features/check-ins";
 import type { FoodCheckInValue } from "@/features/check-ins/types";
 import { CommentSheet } from "@/features/comments/components/CommentSheet";
+import type { ClanMemberOption } from "@/features/comments/components/CommentThread";
 import type { CommentWithUser } from "@/features/comments/queries";
 import { ReactionBar } from "@/features/reactions/components/ReactionBar";
 import type { ReactionSummary } from "@/features/reactions/types";
@@ -15,6 +16,7 @@ import { describeCheckIn, formatDayLabel, groupByDay, groupByUserAndDay, TYPE_IC
 export function FeedList({
   clanId,
   currentUserId,
+  clanMembers,
   initialRows,
   initialReactions,
   initialComments,
@@ -22,6 +24,7 @@ export function FeedList({
 }: {
   clanId: string;
   currentUserId?: string | null;
+  clanMembers?: ClanMemberOption[];
   initialRows: FeedRow[];
   initialReactions: Record<string, ReactionSummary>;
   initialComments: Record<string, CommentWithUser[]>;
@@ -119,6 +122,7 @@ export function FeedList({
                         checkInId={cardId}
                         comments={comments[cardId] ?? []}
                         currentUserId={currentUserId}
+                        clanMembers={clanMembers}
                         onCommentsChange={(next) => setComments((prev) => ({ ...prev, [cardId]: next }))}
                       />
                     </div>

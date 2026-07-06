@@ -5,9 +5,11 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/db";
 import { checkIns, comments } from "@/db/schema";
+import { getClanMembers } from "@/features/clans/queries";
 import { notifyUser } from "@/features/notifications/send";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
-import { COMMENT_MAX_LENGTH } from "./types";
+import { extractMentionedUserIds, mentionsToPlainText } from "./mentions";
+import { COMMENT_MAX_LENGTH, COMMENT_MAX_RAW_LENGTH } from "./types";
 import type { CommentWithUser } from "./queries";
 
 export async function addComment(
@@ -19,7 +21,11 @@ export async function addComment(
 
   const trimmed = text.trim();
   if (!trimmed) return { error: "Comment can't be empty." };
-  if (trimmed.length > COMMENT_MAX_LENGTH) {
+  if (trimmed.length > COMMENT_MAX_RAW_LENGTH) {
+    return { error: "Comment is too long." };
+  }
+  const displayText = mentionsToPlainText(trimmed);
+  if (displayText.length > COMMENT_MAX_LENGTH) {
     return { error: `Keep it under ${COMMENT_MAX_LENGTH} characters.` };
   }
 
@@ -33,14 +39,22 @@ export async function addComment(
 
   if (checkIn.clanId) revalidatePath(`/clans/${checkIn.clanId}`);
 
-  if (checkIn.userId !== user.id) {
-    after(() =>
-      notifyUser(checkIn.userId, {
-        title: `${user.name} commented on your check-in`,
-        body: trimmed,
-        url: checkIn.clanId ? `/clans/${checkIn.clanId}` : "/logs",
-      }),
-    );
+  // Only notify members of this clan, even if the raw text claims to mention someone else's user ID.
+  const members = checkIn.clanId ? await getClanMembers(checkIn.clanId) : [];
+  const memberIds = new Set(members.map((m) => m.user.id));
+  const mentionedIds = new Set(extractMentionedUserIds(trimmed).filter((id) => memberIds.has(id) && id !== user.id));
+
+  const recipients = new Map<string, { title: string; body: string }>();
+  if (checkIn.userId !== user.id && !mentionedIds.has(checkIn.userId)) {
+    recipients.set(checkIn.userId, { title: `${user.name} commented on your check-in`, body: displayText });
+  }
+  for (const mentionedId of mentionedIds) {
+    recipients.set(mentionedId, { title: `${user.name} mentioned you in a comment`, body: displayText });
+  }
+
+  if (recipients.size > 0) {
+    const url = checkIn.clanId ? `/clans/${checkIn.clanId}` : "/logs";
+    after(() => Promise.all([...recipients].map(([userId, payload]) => notifyUser(userId, { ...payload, url }))));
   }
 
   return {
