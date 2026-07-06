@@ -1,6 +1,14 @@
-export { logGymCheckIn, logStepsCheckIn, logFoodCheckIn } from "./actions";
-export { getClanFeed, getTodaysCheckIn, getUserStreak, getUserWeeklyCount } from "./queries";
-export { GymCheckInForm } from "./components/GymCheckInForm";
-export { StepsCheckInForm } from "./components/StepsCheckInForm";
-export { FoodCheckInForm } from "./components/FoodCheckInForm";
+export { logDailyCheckIn } from "./actions";
+export {
+  FEED_PAGE_SIZE,
+  getClanFeed,
+  getStreaks,
+  getTodaysCheckIn,
+  getUserStreak,
+  getUsersLoggedToday,
+  getUserWeeklyCount,
+  getWeeklyCounts,
+} from "./queries";
+export type { FeedRow } from "./queries";
+export { DailyLogForm } from "./components/DailyLogForm";
 export type { CheckInType, FoodStatus } from "./types";

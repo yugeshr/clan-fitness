@@ -1,7 +1,10 @@
+import { sql } from "drizzle-orm";
 import {
+  date,
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -17,6 +20,8 @@ export const checkInVisibilityEnum = pgEnum("check_in_visibility", [
   "public_to_clan",
   "private",
 ]);
+export const genderEnum = pgEnum("gender", ["female", "male", "other", "prefer_not_to_say"]);
+export const unitsPreferenceEnum = pgEnum("units_preference", ["metric", "imperial"]);
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Clerk user id
@@ -24,6 +29,14 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Profile details below are user-entered, private to the user, and never touched by the
+  // Clerk sync upsert in getOrSyncCurrentUser() (its onConflictDoUpdate only sets name/email/avatarUrl).
+  heightCm: integer("height_cm"),
+  weightKg: numeric("weight_kg", { precision: 5, scale: 1 }),
+  dateOfBirth: date("date_of_birth", { mode: "string" }),
+  gender: genderEnum("gender"),
+  unitsPreference: unitsPreferenceEnum("units_preference").notNull().default("metric"),
+  bio: text("bio"),
 });
 
 export const clans = pgTable("clans", {
@@ -52,18 +65,27 @@ export const clanMemberships = pgTable(
     role: clanRoleEnum("role").notNull().default("member"),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("clan_memberships_user_clan_idx").on(t.userId, t.clanId)],
+  (t) => [
+    uniqueIndex("clan_memberships_user_clan_idx").on(t.userId, t.clanId),
+    uniqueIndex("clan_memberships_one_admin_idx")
+      .on(t.clanId)
+      .where(sql`${t.role} = 'admin'`),
+  ],
 );
 
-export const goals = pgTable("goals", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  type: checkInTypeEnum("type").notNull(),
-  targetValue: integer("target_value").notNull(),
-  period: goalPeriodEnum("period").notNull(),
-});
+export const goals = pgTable(
+  "goals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    type: checkInTypeEnum("type").notNull(),
+    targetValue: integer("target_value").notNull(),
+    period: goalPeriodEnum("period").notNull(),
+  },
+  (t) => [uniqueIndex("goals_user_type_idx").on(t.userId, t.type)],
+);
 
 export const checkIns = pgTable(
   "check_ins",

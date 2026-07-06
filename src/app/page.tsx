@@ -9,13 +9,15 @@ export default async function HomePage() {
 
   if (userId) {
     const clans = await getUserClans(userId);
-    redirect(clans.length > 0 ? "/dashboard" : "/onboarding");
+    redirect(clans.length > 0 ? "/logs" : "/onboarding");
   }
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
-      <h1 className="text-4xl font-bold">Clan Fitness</h1>
-      <p className="max-w-md text-neutral-600">
+      <h1 className="text-5xl font-bold text-foreground">
+        Clan <span className="text-accent">Fitness</span>
+      </h1>
+      <p className="max-w-md text-foreground-secondary">
         Track gym days, steps, and food with a small group of people who&apos;ll actually notice if you
         skip.
       </p>

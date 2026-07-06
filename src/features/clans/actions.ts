@@ -35,7 +35,7 @@ export async function createClan(
 
   await db.insert(clanMemberships).values({ userId: user.id, clanId: clan.id, role: "admin" });
 
-  revalidatePath("/dashboard");
+  revalidatePath("/logs");
   redirect(`/clans/${clan.id}`);
 }
 
@@ -60,7 +60,7 @@ export async function joinClanByInviteCode(
 
   await db.insert(clanMemberships).values({ userId: user.id, clanId: clan.id, role: "member" });
 
-  revalidatePath("/dashboard");
+  revalidatePath("/logs");
   redirect(`/clans/${clan.id}`);
 }
 
@@ -72,6 +72,96 @@ export async function leaveClan(clanId: string) {
     .delete(clanMemberships)
     .where(and(eq(clanMemberships.userId, user.id), eq(clanMemberships.clanId, clanId)));
 
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
+  revalidatePath("/logs");
+  redirect("/logs");
+}
+
+export async function renameClan(
+  clanId: string,
+  _prevState: ClanActionState,
+  formData: FormData,
+): Promise<ClanActionState> {
+  const user = await getOrSyncCurrentUser();
+  if (!user) return { error: "Not signed in." };
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    return { error: "Only clan admins can rename the clan." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "Clan name is required." };
+  if (name.length > 60) return { error: "Clan name is too long." };
+
+  await db.update(clans).set({ name }).where(eq(clans.id, clanId));
+
+  revalidatePath(`/clans/${clanId}`);
+  revalidatePath(`/clans/${clanId}/manage`);
+}
+
+export async function removeMember(clanId: string, memberUserId: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only clan admins can remove members.");
+  }
+  if (memberUserId === user.id) {
+    throw new Error("Use 'Leave clan' to remove yourself.");
+  }
+
+  const target = await getClanMembership(memberUserId, clanId);
+  if (!target) throw new Error("That user is not a member of this clan.");
+
+  await db
+    .delete(clanMemberships)
+    .where(and(eq(clanMemberships.userId, memberUserId), eq(clanMemberships.clanId, clanId)));
+
+  revalidatePath(`/clans/${clanId}/manage`);
+}
+
+export async function makeAdmin(clanId: string, targetUserId: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only the clan admin can transfer admin.");
+  }
+  if (targetUserId === user.id) throw new Error("You're already the admin.");
+
+  const target = await getClanMembership(targetUserId, clanId);
+  if (!target) throw new Error("That user is not a member of this clan.");
+
+  // Two sequential updates, not a transaction (the Neon HTTP driver doesn't support them) — demote
+  // first so the "one admin per clan" partial unique index never sees two admin rows at once. A
+  // combined single-statement CASE update was tried and confirmed unsafe: Postgres checks the
+  // partial unique index per-row as it processes an UPDATE, not once at the end, so whichever row
+  // happens to be processed first determines whether it spuriously conflicts with the other row's
+  // not-yet-updated value. Worst case if this fails between the two steps is zero admins, not a
+  // constraint violation or two admins — a safe, recoverable failure mode.
+  await db.update(clanMemberships).set({ role: "member" }).where(eq(clanMemberships.id, membership.id));
+  await db.update(clanMemberships).set({ role: "admin" }).where(eq(clanMemberships.id, target.id));
+
+  revalidatePath(`/clans/${clanId}/manage`);
+}
+
+export async function regenerateInviteCode(clanId: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only clan admins can regenerate the invite code.");
+  }
+
+  let inviteCode = generateInviteCode();
+  for (let attempts = 0; attempts < 5 && (await getClanByInviteCode(inviteCode)); attempts++) {
+    inviteCode = generateInviteCode();
+  }
+
+  await db.update(clans).set({ inviteCode }).where(eq(clans.id, clanId));
+
+  revalidatePath(`/clans/${clanId}/manage`);
 }

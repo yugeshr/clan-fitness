@@ -19,16 +19,11 @@ export default async function ClanPage({ params }: { params: Promise<{ clanId: s
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
       <div>
-        <h1 className="text-2xl font-bold">{clan.name}</h1>
-        {clan.description && <p className="text-neutral-600">{clan.description}</p>}
-        <p className="text-sm text-neutral-500">
+        <h1 className="text-2xl font-bold text-foreground">{clan.name}</h1>
+        {clan.description && <p className="text-foreground-secondary">{clan.description}</p>}
+        <p className="text-sm text-foreground-tertiary">
           {memberCount}/{clan.maxSize} members
         </p>
-        {membership.role === "admin" && (
-          <p className="text-sm text-neutral-500">
-            Invite code: <span className="font-mono">{clan.inviteCode}</span>
-          </p>
-        )}
       </div>
       <ClanFeed clanId={clanId} />
     </div>

@@ -1,0 +1,63 @@
+"use client";
+
+import { Activity, House, Shield, User } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ComponentType } from "react";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  match: (pathname: string) => boolean;
+};
+
+export function BottomNav({ clanId }: { clanId?: string }) {
+  const pathname = usePathname();
+
+  const items: NavItem[] = [
+    ...(clanId
+      ? [
+          {
+            href: `/clans/${clanId}`,
+            label: "Feed",
+            icon: Activity,
+            match: (p: string) => p === `/clans/${clanId}`,
+          },
+        ]
+      : []),
+    { href: "/logs", label: "Logs", icon: House, match: (p) => p === "/logs" },
+    ...(clanId
+      ? [
+          {
+            href: `/clans/${clanId}/manage`,
+            label: "Clan",
+            icon: Shield,
+            match: (p: string) => p.startsWith(`/clans/${clanId}/manage`),
+          },
+        ]
+      : []),
+    { href: "/profile", label: "Profile", icon: User, match: (p) => p.startsWith("/profile") },
+  ];
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-surface-border bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = item.match(pathname);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold ${
+              active ? "text-accent" : "text-foreground-tertiary"
+            }`}
+          >
+            <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
