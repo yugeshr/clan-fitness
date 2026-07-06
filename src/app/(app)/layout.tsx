@@ -5,16 +5,14 @@ import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { ClanSwitcher } from "@/components/shared/ClanSwitcher";
 import { getUserClans } from "@/features/clans";
-import { getUserGoals } from "@/features/goals";
 import { AutoEnableNotifications } from "@/features/notifications";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [memberships, goals] = await Promise.all([getUserClans(userId), getUserGoals(userId)]);
+  const memberships = await getUserClans(userId);
   if (memberships.length === 0) redirect("/onboarding");
-  if (goals.length === 0) redirect("/onboarding/goals");
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">

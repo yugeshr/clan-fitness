@@ -1,42 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { markPrompted } from "../prompted";
 import { usePushSubscription } from "../usePushSubscription";
 
-export function PushNotificationManager({
-  onSkip,
-  onSubscribed,
-  className = "",
-}: {
-  /** Renders a "Not now" link alongside the enable button, e.g. during onboarding. */
-  onSkip?: () => void;
-  onSubscribed?: () => void;
-  className?: string;
-}) {
+export function PushNotificationManager({ className = "" }: { className?: string }) {
   const { support, subscription, pending, error, subscribe, unsubscribe } = usePushSubscription();
-  const unsupportedHandled = useRef(false);
-
-  useEffect(() => {
-    if (support !== "unsupported" || unsupportedHandled.current) return;
-    unsupportedHandled.current = true;
-    markPrompted();
-    onSkip?.();
-    // Runs once, the moment support resolves to "unsupported" — onSkip is intentionally excluded
-    // from deps so a fresh function identity from the parent doesn't refire it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [support]);
 
   async function handleEnable() {
-    const subscribed = await subscribe();
+    await subscribe();
     markPrompted();
-    if (subscribed) onSubscribed?.();
-  }
-
-  function handleSkip() {
-    markPrompted();
-    onSkip?.();
   }
 
   if (support === "checking" || support === "unsupported") return null;
@@ -48,11 +21,6 @@ export function PushNotificationManager({
           To get notifications on iPhone or iPad, add Clan Fitness to your Home Screen first: tap the
           Share button, then &quot;Add to Home Screen&quot;. Open it from there to turn notifications on.
         </p>
-        {onSkip && (
-          <button type="button" onClick={handleSkip} className="self-start text-sm text-foreground-tertiary underline">
-            Not now
-          </button>
-        )}
       </div>
     );
   }
@@ -67,16 +35,9 @@ export function PushNotificationManager({
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
-          <Button type="button" onClick={handleEnable} disabled={pending}>
-            Enable notifications
-          </Button>
-          {onSkip && (
-            <button type="button" onClick={handleSkip} className="text-sm text-foreground-tertiary underline">
-              Not now
-            </button>
-          )}
-        </div>
+        <Button type="button" onClick={handleEnable} disabled={pending}>
+          Enable notifications
+        </Button>
       )}
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
