@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,18 +14,29 @@ const STATUS_OPTIONS: { value: FoodStatus; label: string }[] = [
   { value: "partial", label: "Partial" },
 ];
 
+// Full-height pill wrapping the native input, not just the text, so the tappable area meets the
+// ~44px touch-target minimum on mobile — a bare `<input>` + label text was too small to hit reliably.
+const TOGGLE_LABEL_CLASS =
+  "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-surface-border px-4 text-sm font-medium text-foreground-secondary transition-colors has-[:checked]:border-accent has-[:checked]:text-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent";
+
 export function DailyLogForm({
   alreadyWorkedOut,
   existingGymNote,
   todaysSteps,
   dailyStepsTarget,
   currentFoodStatus,
+  existingFoodNote,
+  existingFoodPhotoUrl,
+  hasLoggedToday,
 }: {
   alreadyWorkedOut: boolean;
   existingGymNote?: string;
   todaysSteps?: number;
   dailyStepsTarget?: number;
   currentFoodStatus?: FoodStatus;
+  existingFoodNote?: string;
+  existingFoodPhotoUrl?: string;
+  hasLoggedToday: boolean;
 }) {
   const [state, action, pending] = useActionState(logDailyCheckIn, undefined);
   const [compressing, setCompressing] = useState(false);
@@ -61,8 +73,8 @@ export function DailyLogForm({
           </>
         ) : (
           <>
-            <label className="flex items-center gap-2 text-sm text-foreground-secondary">
-              <input type="checkbox" name="workedOut" className="accent-accent" />
+            <label className={TOGGLE_LABEL_CLASS}>
+              <input type="checkbox" name="workedOut" className="h-5 w-5 accent-accent" />
               I worked out today 💪
             </label>
             <Input name="gymNote" placeholder="Optional note (e.g. leg day)" maxLength={200} />
@@ -82,28 +94,47 @@ export function DailyLogForm({
 
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold text-foreground">Nutrition</h2>
-        <div className="flex flex-wrap gap-3">
+        {currentFoodStatus && (
+          <p className="text-sm text-foreground-secondary">You already logged nutrition today.</p>
+        )}
+        <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((option) => (
-            <label
-              key={option.value}
-              className="flex items-center gap-1 text-sm text-foreground-secondary"
-            >
+            <label key={option.value} className={TOGGLE_LABEL_CLASS}>
               <input
                 type="radio"
                 name="status"
                 value={option.value}
                 defaultChecked={currentFoodStatus === option.value}
-                className="accent-accent"
+                className="h-5 w-5 accent-accent"
               />
               {option.label}
             </label>
           ))}
         </div>
-        <Input name="foodNote" placeholder="Optional note (e.g. meal prepped)" maxLength={200} />
-        <div className="flex flex-col gap-1">
+        <Input
+          name="foodNote"
+          placeholder="Optional note (e.g. meal prepped)"
+          maxLength={200}
+          defaultValue={existingFoodNote}
+        />
+        <div className="flex flex-col gap-2">
           <label htmlFor="foodPhoto" className="text-xs text-foreground-tertiary">
-            Optional photo
+            {existingFoodPhotoUrl ? "Replace photo" : "Optional photo"}
           </label>
+          {existingFoodPhotoUrl && (
+            <div className="flex items-center gap-2">
+              <Image
+                src={existingFoodPhotoUrl}
+                alt="Current food photo"
+                width={56}
+                height={56}
+                className="h-14 w-14 rounded-lg object-cover"
+              />
+              <p className="text-xs text-foreground-tertiary">
+                Current photo — pick a new file below to replace it.
+              </p>
+            </div>
+          )}
           <input
             id="foodPhoto"
             type="file"
@@ -118,7 +149,7 @@ export function DailyLogForm({
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
       <Button type="submit" disabled={pending || compressing}>
-        {pending ? "Saving..." : "Save today's log"}
+        {pending ? "Saving..." : hasLoggedToday ? "Update today's log" : "Save today's log"}
       </Button>
     </form>
   );

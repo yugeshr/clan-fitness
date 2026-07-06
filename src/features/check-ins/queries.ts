@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { checkIns, users } from "@/db/schema";
-import type { CheckInType } from "./types";
+import type { CheckInType, StepsCheckInValue } from "./types";
 
 export const FEED_PAGE_SIZE = 20;
 
@@ -32,6 +32,20 @@ export async function getClanFeed(clanId: string, before?: Date) {
 }
 
 export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>[number];
+
+export async function getLatestCheckInAt(clanId: string, excludeUserId?: string) {
+  const conditions = [eq(checkIns.clanId, clanId), eq(checkIns.visibility, "public_to_clan")];
+  if (excludeUserId) conditions.push(ne(checkIns.userId, excludeUserId));
+
+  const [row] = await db
+    .select({ createdAt: checkIns.createdAt })
+    .from(checkIns)
+    .where(and(...conditions))
+    .orderBy(desc(checkIns.createdAt))
+    .limit(1);
+
+  return row?.createdAt ?? null;
+}
 
 export async function getUsersLoggedToday(userIds: string[]) {
   if (userIds.length === 0) return new Set<string>();
@@ -73,6 +87,24 @@ export async function getWeeklyCounts(userIds: string[], type: CheckInType) {
 
   for (const row of rows) counts.set(row.userId, (counts.get(row.userId) ?? 0) + 1);
   return counts;
+}
+
+export async function getWeeklyStepsTotals(userIds: string[]) {
+  const totals = new Map<string, number>();
+  if (userIds.length === 0) return totals;
+
+  const rows = await db
+    .select({ userId: checkIns.userId, value: checkIns.value })
+    .from(checkIns)
+    .where(
+      and(inArray(checkIns.userId, userIds), eq(checkIns.type, "steps"), gte(checkIns.createdAt, startOfWeek())),
+    );
+
+  for (const row of rows) {
+    const { count } = row.value as StepsCheckInValue;
+    totals.set(row.userId, (totals.get(row.userId) ?? 0) + count);
+  }
+  return totals;
 }
 
 function streakFromDayKeys(dayKeys: Set<string>) {

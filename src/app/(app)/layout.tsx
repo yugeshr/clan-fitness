@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { ClanSwitcher } from "@/components/shared/ClanSwitcher";
+import { getLatestCheckInAt } from "@/features/check-ins";
 import { getUserClans } from "@/features/clans";
 import { AutoEnableNotifications } from "@/features/notifications";
 
@@ -13,6 +14,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const memberships = await getUserClans(userId);
   if (memberships.length === 0) redirect("/onboarding");
+
+  const primaryClanId = memberships[0]?.clan.id;
+  const latestFeedCheckInAt = primaryClanId ? await getLatestCheckInAt(primaryClanId, userId) : null;
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
@@ -33,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="flex-1 pt-[calc(4rem+env(safe-area-inset-top))] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
         {children}
       </main>
-      <BottomNav clanId={memberships[0]?.clan.id} />
+      <BottomNav clanId={primaryClanId} latestFeedCheckInAt={latestFeedCheckInAt} />
       <AutoEnableNotifications />
     </div>
   );

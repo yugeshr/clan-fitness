@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import type { FeedRow } from "@/features/check-ins";
 import type { FoodCheckInValue } from "@/features/check-ins/types";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { CommentSheet } from "@/features/comments/components/CommentSheet";
 import type { ClanMemberOption } from "@/features/comments/components/CommentThread";
 import type { CommentWithUser } from "@/features/comments/queries";
@@ -35,6 +36,7 @@ export function FeedList({
   const [comments, setComments] = useState(initialComments);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
+  const [openImage, setOpenImage] = useState<string | null>(null);
 
   async function handleLoadMore() {
     const cursor = rows[rows.length - 1]?.checkIn.createdAt;
@@ -98,13 +100,20 @@ export function FeedList({
                               {describeCheckIn(checkIn.type, checkIn.value)}
                             </p>
                             {photoUrl && (
-                              <Image
-                                src={photoUrl}
-                                alt=""
-                                width={320}
-                                height={240}
-                                className="max-h-60 w-full max-w-xs rounded-lg border border-surface-border object-cover"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setOpenImage(photoUrl)}
+                                aria-label="View photo full-screen"
+                                className="block w-full max-w-xs cursor-zoom-in"
+                              >
+                                <Image
+                                  src={photoUrl}
+                                  alt=""
+                                  width={320}
+                                  height={240}
+                                  className="max-h-60 w-full max-w-xs rounded-lg border border-surface-border object-cover"
+                                />
+                              </button>
                             )}
                           </div>
                         );
@@ -144,6 +153,8 @@ export function FeedList({
           {loading ? "Loading..." : "Load more"}
         </button>
       )}
+
+      <ImageLightbox src={openImage} onClose={() => setOpenImage(null)} />
     </div>
   );
 }

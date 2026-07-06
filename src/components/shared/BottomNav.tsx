@@ -3,17 +3,47 @@
 import { Activity, House, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 
 type NavItem = {
   href: string;
   label: string;
   icon: ComponentType<{ size?: number; strokeWidth?: number }>;
   match: (pathname: string) => boolean;
+  hasUnread?: boolean;
 };
 
-export function BottomNav({ clanId }: { clanId?: string }) {
+function feedSeenKey(clanId: string) {
+  return `feed-seen:${clanId}`;
+}
+
+export function BottomNav({
+  clanId,
+  latestFeedCheckInAt,
+}: {
+  clanId?: string;
+  latestFeedCheckInAt?: Date | null;
+}) {
   const pathname = usePathname();
+  const [seenAt, setSeenAt] = useState<Date | null>(null);
+
+  // Reads localStorage, which only exists in the browser — inherently can't be derived during render.
+  useEffect(() => {
+    if (!clanId) return;
+    const stored = localStorage.getItem(feedSeenKey(clanId));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeenAt(stored ? new Date(stored) : null);
+  }, [clanId]);
+
+  useEffect(() => {
+    if (!clanId || pathname !== `/clans/${clanId}`) return;
+    const now = new Date();
+    localStorage.setItem(feedSeenKey(clanId), now.toISOString());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeenAt(now);
+  }, [clanId, pathname]);
+
+  const hasUnreadFeed = !!latestFeedCheckInAt && (!seenAt || seenAt < latestFeedCheckInAt);
 
   const items: NavItem[] = [
     ...(clanId
@@ -23,6 +53,7 @@ export function BottomNav({ clanId }: { clanId?: string }) {
             label: "Feed",
             icon: Activity,
             match: (p: string) => p === `/clans/${clanId}`,
+            hasUnread: hasUnreadFeed,
           },
         ]
       : []),
@@ -53,7 +84,12 @@ export function BottomNav({ clanId }: { clanId?: string }) {
               active ? "text-accent" : "text-foreground-tertiary"
             }`}
           >
-            <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+            <span className="relative">
+              <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+              {item.hasUnread && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-danger" />
+              )}
+            </span>
             {item.label}
           </Link>
         );
