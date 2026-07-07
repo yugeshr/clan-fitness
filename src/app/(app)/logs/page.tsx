@@ -8,6 +8,7 @@ import {
   getUserStreak,
   getUserWeeklyCount,
 } from "@/features/check-ins";
+import { getFoodPhotoUrls } from "@/features/check-ins/types";
 import type { FoodCheckInValue, GymCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
 import { getUserGoals } from "@/features/goals";
 
@@ -36,6 +37,10 @@ export default async function LogsPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-8">
       <section className="flex flex-col gap-5 rounded-xl border border-surface-border bg-surface p-5">
+        <p className="text-sm font-semibold text-foreground-secondary">
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </p>
+
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <ProgressRing value={weeklyGymCount} max={weeklyGymTarget}>
@@ -81,6 +86,9 @@ export default async function LogsPage() {
         todaysSteps={stepsValue?.count}
         dailyStepsTarget={dailyStepsTarget}
         currentFoodStatus={foodValue?.status}
+        existingFoodNote={foodValue?.note}
+        existingPhotoUrls={getFoodPhotoUrls(foodValue)}
+        hasLoggedToday={!!(gymCheckIn || stepsCheckIn || foodCheckIn)}
       />
     </div>
   );

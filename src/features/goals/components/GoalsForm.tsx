@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setGoals } from "../actions";
@@ -9,22 +8,11 @@ import { setGoals } from "../actions";
 export function GoalsForm({
   gymTarget,
   stepsTarget,
-  redirectOnSuccessTo,
 }: {
   gymTarget?: number;
   stepsTarget?: number;
-  redirectOnSuccessTo?: string;
 }) {
   const [state, action, pending] = useActionState(setGoals, undefined);
-  const router = useRouter();
-  const wasPending = useRef(false);
-
-  useEffect(() => {
-    if (wasPending.current && !pending && !state?.error && redirectOnSuccessTo) {
-      router.push(redirectOnSuccessTo);
-    }
-    wasPending.current = pending;
-  }, [pending, state, redirectOnSuccessTo, router]);
 
   return (
     <form action={action} className="flex flex-col gap-6">

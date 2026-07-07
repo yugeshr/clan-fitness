@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { checkIns, users } from "@/db/schema";
-import type { CheckInType } from "./types";
+import { checkIns, clanMemberships, users } from "@/db/schema";
+import type { CheckInType, StepsCheckInValue } from "./types";
 
 export const FEED_PAGE_SIZE = 20;
 
@@ -18,13 +18,22 @@ function startOfWeek() {
   return date;
 }
 
+// A check-in has no clanId of its own — it's visible in a clan's feed whenever its author is
+// (still) a member of that clan and it was logged after they joined. No row-fanout risk: the
+// unique (userId, clanId) index on clanMemberships means at most one membership row matches per
+// checkIns.userId for a fixed clanId filter.
 export async function getClanFeed(clanId: string, before?: Date) {
-  const conditions = [eq(checkIns.clanId, clanId), eq(checkIns.visibility, "public_to_clan")];
+  const conditions = [
+    eq(clanMemberships.clanId, clanId),
+    eq(checkIns.visibility, "public_to_clan"),
+    gte(checkIns.createdAt, clanMemberships.joinedAt),
+  ];
   if (before) conditions.push(lt(checkIns.createdAt, before));
 
   return db
     .select({ checkIn: checkIns, user: users })
     .from(checkIns)
+    .innerJoin(clanMemberships, eq(checkIns.userId, clanMemberships.userId))
     .innerJoin(users, eq(checkIns.userId, users.id))
     .where(and(...conditions))
     .orderBy(desc(checkIns.createdAt))
@@ -32,6 +41,31 @@ export async function getClanFeed(clanId: string, before?: Date) {
 }
 
 export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>[number];
+
+/** Looked up only for its `createdAt`, to anchor a feed page around it — clan-visibility is enforced by getClanFeed's own join, not here. */
+export async function getCheckInById(checkInId: string) {
+  const [row] = await db.select({ id: checkIns.id, createdAt: checkIns.createdAt }).from(checkIns).where(eq(checkIns.id, checkInId));
+  return row ?? null;
+}
+
+export async function getLatestCheckInAt(clanId: string, excludeUserId?: string) {
+  const conditions = [
+    eq(clanMemberships.clanId, clanId),
+    eq(checkIns.visibility, "public_to_clan"),
+    gte(checkIns.createdAt, clanMemberships.joinedAt),
+  ];
+  if (excludeUserId) conditions.push(ne(checkIns.userId, excludeUserId));
+
+  const [row] = await db
+    .select({ createdAt: checkIns.createdAt })
+    .from(checkIns)
+    .innerJoin(clanMemberships, eq(checkIns.userId, clanMemberships.userId))
+    .where(and(...conditions))
+    .orderBy(desc(checkIns.createdAt))
+    .limit(1);
+
+  return row?.createdAt ?? null;
+}
 
 export async function getUsersLoggedToday(userIds: string[]) {
   if (userIds.length === 0) return new Set<string>();
@@ -73,6 +107,24 @@ export async function getWeeklyCounts(userIds: string[], type: CheckInType) {
 
   for (const row of rows) counts.set(row.userId, (counts.get(row.userId) ?? 0) + 1);
   return counts;
+}
+
+export async function getWeeklyStepsTotals(userIds: string[]) {
+  const totals = new Map<string, number>();
+  if (userIds.length === 0) return totals;
+
+  const rows = await db
+    .select({ userId: checkIns.userId, value: checkIns.value })
+    .from(checkIns)
+    .where(
+      and(inArray(checkIns.userId, userIds), eq(checkIns.type, "steps"), gte(checkIns.createdAt, startOfWeek())),
+    );
+
+  for (const row of rows) {
+    const { count } = row.value as StepsCheckInValue;
+    totals.set(row.userId, (totals.get(row.userId) ?? 0) + count);
+  }
+  return totals;
 }
 
 function streakFromDayKeys(dayKeys: Set<string>) {

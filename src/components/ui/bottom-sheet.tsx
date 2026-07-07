@@ -25,8 +25,18 @@ export function BottomSheet({
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMounted(true);
-      const raf = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(raf);
+      // Nested rAF, not a single one: a single rAF can still land in the same paint as the mount
+      // (React may batch the "closed" and "open" states together), so the browser sometimes skips
+      // straight to the end state instead of animating. The second rAF guarantees the closed state
+      // (translate-y-full) has actually been painted at least once before switching to open.
+      let raf2 = 0;
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      };
     }
     setVisible(false);
     const timeout = setTimeout(() => setMounted(false), 200);

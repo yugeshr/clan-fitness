@@ -14,7 +14,10 @@ export function describeCheckIn(type: string, value: unknown) {
       return `Logged ${count.toLocaleString("en-US")} steps`;
     }
     case "food": {
-      const { note } = value as FoodCheckInValue;
+      // A photo can be logged without a nutrition status now — the photo itself always renders
+      // inline in the feed card regardless (see FeedList.tsx), this is just the caption line above it.
+      const { status, note } = value as FoodCheckInValue;
+      if (!status) return note ? `Shared a photo — "${note}"` : "Shared a photo";
       return note ? `Logged a meal — "${note}"` : "Logged a meal";
     }
     default:

@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { getUserGoals, GoalsForm } from "@/features/goals";
+import { PushNotificationManager } from "@/features/notifications";
 import { calculateAge, calculateBmi, getProfileDetails, ProfileDetailsForm } from "@/features/profile";
 
 const CM_PER_INCH = 2.54;
@@ -33,38 +35,43 @@ export default async function ProfilePage() {
   const age = details?.dateOfBirth ? calculateAge(details.dateOfBirth) : undefined;
   const bmi = heightCm && weightKg ? calculateBmi(heightCm, weightKg) : undefined;
 
-  return (
-    <div className="mx-auto flex max-w-md flex-col gap-8 px-6 py-8">
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-
-        <section className="flex flex-col gap-4">
-          <h2 className="font-semibold text-foreground">Goals</h2>
-          <GoalsForm gymTarget={gymGoal?.targetValue} stepsTarget={stepsGoal?.targetValue} />
-        </section>
-      </div>
-
-      <section className="flex flex-col gap-4 border-t border-surface-border pt-8">
-        <div>
-          <h2 className="font-semibold text-foreground">Your details</h2>
+  const tabs: TabItem[] = [
+    {
+      id: "goals",
+      label: "Goals",
+      content: <GoalsForm gymTarget={gymGoal?.targetValue} stepsTarget={stepsGoal?.targetValue} />,
+    },
+    {
+      id: "details",
+      label: "Details",
+      content: (
+        <>
           <p className="text-xs text-foreground-tertiary">Only visible to you.</p>
-        </div>
-        {(age !== undefined || bmi !== undefined) && (
-          <p className="text-sm text-foreground-secondary">
-            {age !== undefined && <>Age {age}</>}
-            {age !== undefined && bmi !== undefined && " · "}
-            {bmi !== undefined && <>BMI {bmi.toFixed(1)}</>}
-          </p>
-        )}
-        <ProfileDetailsForm
-          heightDisplay={heightDisplay}
-          weightDisplay={weightDisplay}
-          dateOfBirth={details?.dateOfBirth ?? undefined}
-          gender={details?.gender ?? undefined}
-          unitsPreference={unitsPreference}
-          bio={details?.bio ?? undefined}
-        />
-      </section>
+          {(age !== undefined || bmi !== undefined) && (
+            <p className="text-sm text-foreground-secondary">
+              {age !== undefined && <>Age {age}</>}
+              {age !== undefined && bmi !== undefined && " · "}
+              {bmi !== undefined && <>BMI {bmi.toFixed(1)}</>}
+            </p>
+          )}
+          <ProfileDetailsForm
+            heightDisplay={heightDisplay}
+            weightDisplay={weightDisplay}
+            dateOfBirth={details?.dateOfBirth ?? undefined}
+            gender={details?.gender ?? undefined}
+            unitsPreference={unitsPreference}
+            bio={details?.bio ?? undefined}
+          />
+        </>
+      ),
+    },
+    { id: "settings", label: "Settings", content: <PushNotificationManager /> },
+  ];
+
+  return (
+    <div className="mx-auto flex max-w-md flex-col gap-6 px-6 py-8">
+      <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+      <Tabs tabs={tabs} />
     </div>
   );
 }

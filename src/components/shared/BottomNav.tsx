@@ -3,17 +3,49 @@
 import { Activity, House, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType } from "react";
+import { Suspense, use, useEffect, useState, type ComponentType } from "react";
+import { useActiveClanId, type ClanOption } from "@/lib/active-clan";
+
+export type FeedCheckInEntry = { clanId: string; latestCheckInAt: Date | null };
 
 type NavItem = {
   href: string;
   label: string;
   icon: ComponentType<{ size?: number; strokeWidth?: number }>;
   match: (pathname: string) => boolean;
+  showUnreadDot?: boolean;
 };
 
-export function BottomNav({ clanId }: { clanId?: string }) {
+function feedSeenKey(clanId: string) {
+  return `feed-seen:${clanId}`;
+}
+
+export function BottomNav({
+  clans,
+  latestFeedCheckInAtByClan,
+}: {
+  clans: ClanOption[];
+  latestFeedCheckInAtByClan: Promise<FeedCheckInEntry[]>;
+}) {
   const pathname = usePathname();
+  const [seenAt, setSeenAt] = useState<Date | null>(null);
+  const clanId = useActiveClanId(pathname, clans);
+
+  // Reads localStorage, which only exists in the browser — inherently can't be derived during render.
+  useEffect(() => {
+    if (!clanId) return;
+    const stored = localStorage.getItem(feedSeenKey(clanId));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeenAt(stored ? new Date(stored) : null);
+  }, [clanId]);
+
+  useEffect(() => {
+    if (!clanId || pathname !== `/clans/${clanId}`) return;
+    const now = new Date();
+    localStorage.setItem(feedSeenKey(clanId), now.toISOString());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeenAt(now);
+  }, [clanId, pathname]);
 
   const items: NavItem[] = [
     ...(clanId
@@ -23,6 +55,7 @@ export function BottomNav({ clanId }: { clanId?: string }) {
             label: "Feed",
             icon: Activity,
             match: (p: string) => p === `/clans/${clanId}`,
+            showUnreadDot: true,
           },
         ]
       : []),
@@ -53,11 +86,35 @@ export function BottomNav({ clanId }: { clanId?: string }) {
               active ? "text-accent" : "text-foreground-tertiary"
             }`}
           >
-            <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+            <span className="relative">
+              <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+              {item.showUnreadDot && clanId && (
+                <Suspense fallback={null}>
+                  <FeedUnreadDot promise={latestFeedCheckInAtByClan} clanId={clanId} seenAt={seenAt} />
+                </Suspense>
+              )}
+            </span>
             {item.label}
           </Link>
         );
       })}
     </nav>
   );
+}
+
+/** Isolated so only this leaf ever suspends — the nav links and icon render immediately regardless. */
+function FeedUnreadDot({
+  promise,
+  clanId,
+  seenAt,
+}: {
+  promise: Promise<FeedCheckInEntry[]>;
+  clanId: string;
+  seenAt: Date | null;
+}) {
+  const entries = use(promise);
+  const latestCheckInAt = entries.find((e) => e.clanId === clanId)?.latestCheckInAt ?? null;
+  const hasUnread = !!latestCheckInAt && (!seenAt || seenAt < latestCheckInAt);
+  if (!hasUnread) return null;
+  return <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-danger" />;
 }

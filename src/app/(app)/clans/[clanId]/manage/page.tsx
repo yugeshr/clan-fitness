@@ -1,44 +1,77 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
-import { Avatar } from "@/components/shared/Avatar";
-import { getStreaks, getUsersLoggedToday, getWeeklyCounts } from "@/features/check-ins";
-import { ClanSettingsSheet, getClanById, getClanMembers, getClanMembership, MemberActionsSheet } from "@/features/clans";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
+import { getStreaks, getUsersLoggedToday, getWeeklyCounts, getWeeklyStepsTotals } from "@/features/check-ins";
+import {
+  ClanLeaderboardSection,
+  ClanMembersSection,
+  ClanSettingsSheet,
+  getClanById,
+  getClanMembers,
+} from "@/features/clans";
 import { getGoalsForUsers } from "@/features/goals";
 
 const DEFAULT_WEEKLY_GYM_TARGET = 4;
+const DEFAULT_DAILY_STEPS_TARGET = 8000;
+const STEP_WEIGHT = 0.4;
+const GYM_WEIGHT = 0.4;
+const STREAK_WEIGHT = 0.2;
+const STREAK_CAP_DAYS = 7;
 
 export default async function ManageClanPage({ params }: { params: Promise<{ clanId: string }> }) {
   const { clanId } = await params;
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [clan, membership] = await Promise.all([
-    getClanById(clanId),
-    getClanMembership(userId, clanId),
-  ]);
+  // members already contains the current user's own row (with role), so a separate
+  // getClanMembership call for the same table would be a redundant query.
+  const [clan, members] = await Promise.all([getClanById(clanId), getClanMembers(clanId)]);
+  const membership = members.find((m) => m.user.id === userId);
   if (!clan || !membership) notFound();
 
-  const members = await getClanMembers(clanId);
   const memberIds = members.map((m) => m.user.id);
-  const [loggedToday, weeklyCounts, streaks, gymGoals] = await Promise.all([
+  const [loggedToday, weeklyCounts, weeklyStepsTotals, streaks, gymGoals, stepsGoals] = await Promise.all([
     getUsersLoggedToday(memberIds),
     getWeeklyCounts(memberIds, "gym"),
+    getWeeklyStepsTotals(memberIds),
     getStreaks(memberIds, "gym"),
     getGoalsForUsers(memberIds, "gym"),
+    getGoalsForUsers(memberIds, "steps"),
   ]);
   const isAdmin = membership.role === "admin";
 
+  // Position is a weighted composite of three 0-100 scores, each capped at 100 so blowing past a
+  // goal can't be used to coast on the others: steps % of personal goal (40%), gym % of personal
+  // goal (40%), and streak normalized against a 7-day cap (20%). Streak is folded into the score
+  // itself rather than left as a pure tiebreaker, since a long streak reflects real consistency
+  // that neither of the other two metrics captures on its own.
   const leaderboard = members
-    .map(({ user }) => ({
-      user,
-      weeklyCount: weeklyCounts.get(user.id) ?? 0,
-      weeklyTarget: gymGoals.get(user.id) ?? DEFAULT_WEEKLY_GYM_TARGET,
-      streak: streaks.get(user.id) ?? 0,
-    }))
-    .sort(
-      (a, b) =>
-        b.weeklyCount - a.weeklyCount || b.streak - a.streak || a.user.name.localeCompare(b.user.name),
-    );
+    .map(({ user }) => {
+      const weeklyCount = weeklyCounts.get(user.id) ?? 0;
+      const weeklyTarget = gymGoals.get(user.id) ?? DEFAULT_WEEKLY_GYM_TARGET;
+      const weeklySteps = weeklyStepsTotals.get(user.id) ?? 0;
+      const weeklyStepsTarget = (stepsGoals.get(user.id) ?? DEFAULT_DAILY_STEPS_TARGET) * 7;
+      const streak = streaks.get(user.id) ?? 0;
+
+      const stepPct = Math.min(weeklySteps / weeklyStepsTarget, 1) * 100;
+      const gymPct = Math.min(weeklyCount / weeklyTarget, 1) * 100;
+      const streakPct = Math.min(streak / STREAK_CAP_DAYS, 1) * 100;
+      const score = STEP_WEIGHT * stepPct + GYM_WEIGHT * gymPct + STREAK_WEIGHT * streakPct;
+
+      return { user, weeklyCount, weeklyTarget, weeklySteps, weeklyStepsTarget, streak, stepPct, gymPct, score };
+    })
+    .sort((a, b) => b.score - a.score || b.streak - a.streak || a.user.name.localeCompare(b.user.name));
+
+  const tabs: TabItem[] = [
+    { id: "leaderboard", label: "Leaderboard", content: <ClanLeaderboardSection leaderboard={leaderboard} /> },
+    {
+      id: "members",
+      label: "Members",
+      content: (
+        <ClanMembersSection clanId={clanId} members={members} isAdmin={isAdmin} loggedToday={loggedToday} />
+      ),
+    },
+  ];
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
@@ -56,61 +89,7 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
         )}
       </div>
 
-      <section className="flex flex-col gap-1 rounded-xl border border-surface-border bg-surface p-5">
-        <h2 className="mb-2 font-semibold text-foreground">This week</h2>
-        <ul className="flex flex-col divide-y divide-surface-border">
-          {leaderboard.map(({ user, weeklyCount, weeklyTarget, streak }) => (
-            <li key={user.id} className="flex min-w-0 items-center gap-3 py-3 first:pt-0 last:pb-0">
-              <Avatar src={user.avatarUrl} name={user.name} />
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{user.name}</span>
-              <span className="shrink-0 text-sm text-foreground-secondary">
-                {weeklyCount}/{weeklyTarget} <span className="text-foreground-tertiary">gym</span>
-              </span>
-              <span className="shrink-0 text-sm font-semibold text-ember">{streak}🔥</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-1 rounded-xl border border-surface-border bg-surface p-5">
-        <h2 className="mb-2 font-semibold text-foreground">Members</h2>
-        <ul className="flex flex-col divide-y divide-surface-border">
-          {members.map(({ user, role }) => (
-            <li key={user.id} className="py-3 first:pt-0 last:pb-0">
-              {isAdmin && role !== "admin" ? (
-                <MemberActionsSheet
-                  clanId={clanId}
-                  memberUserId={user.id}
-                  memberName={user.name}
-                  memberAvatarUrl={user.avatarUrl}
-                  loggedToday={loggedToday.has(user.id)}
-                />
-              ) : (
-                <div className="flex min-w-0 items-center gap-3">
-                  <Avatar src={user.avatarUrl} name={user.name} />
-                  <div className="min-w-0 flex-1">
-                    <p className="min-w-0 truncate text-sm text-foreground">
-                      {user.name}
-                      {role === "admin" && (
-                        <span className="ml-2 rounded bg-background px-1.5 py-0.5 text-xs text-foreground-tertiary">
-                          Admin
-                        </span>
-                      )}
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        loggedToday.has(user.id) ? "text-foreground-tertiary" : "text-danger"
-                      }`}
-                    >
-                      {loggedToday.has(user.id) ? "Logged today" : "Not logged yet"}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <Tabs tabs={tabs} />
     </div>
   );
 }
