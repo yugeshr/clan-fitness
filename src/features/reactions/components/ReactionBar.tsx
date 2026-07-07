@@ -63,8 +63,9 @@ export function ReactionBar({
               onPointerUp={cancelLongPress}
               onPointerLeave={cancelLongPress}
               onPointerCancel={cancelLongPress}
+              onContextMenu={(event) => event.preventDefault()}
               disabled={pending}
-              className={`flex min-h-9 items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-60 ${
+              className={`flex min-h-9 select-none items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition-colors [-webkit-touch-callout:none] disabled:opacity-60 ${
                 entry?.reactedByMe
                   ? "border-accent text-accent"
                   : "border-surface-border text-foreground-tertiary"
