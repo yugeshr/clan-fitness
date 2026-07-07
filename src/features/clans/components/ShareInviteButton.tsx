@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 
 function subscribe() {
@@ -18,11 +18,33 @@ function getServerSnapshot() {
 export function ShareInviteButton({ inviteCode, clanName }: { inviteCode: string; clanName: string }) {
   const canShare = useSyncExternalStore(subscribe, getCanShareSnapshot, getServerSnapshot);
   const [copied, setCopied] = useState(false);
+  const copiedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimeout.current) clearTimeout(copiedTimeout.current);
+    };
+  }, []);
 
   function buildInvite() {
     const url = `${window.location.origin}/join?code=${inviteCode}`;
     const text = `Join my clan "${clanName}" on Clan Fitness!`;
     return { url, text };
+  }
+
+  function fallbackCopy(text: string) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      return document.execCommand("copy");
+    } finally {
+      document.body.removeChild(textarea);
+    }
   }
 
   async function handleShare() {
@@ -38,9 +60,24 @@ export function ShareInviteButton({ inviteCode, clanName }: { inviteCode: string
 
   async function handleCopy() {
     const { url } = buildInvite();
-    await navigator.clipboard.writeText(url);
+    let succeeded = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        succeeded = true;
+      } else {
+        succeeded = fallbackCopy(url);
+      }
+    } catch (err) {
+      console.error(err);
+      succeeded = fallbackCopy(url);
+    }
+
+    if (!succeeded) return;
+
+    if (copiedTimeout.current) clearTimeout(copiedTimeout.current);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    copiedTimeout.current = setTimeout(() => setCopied(false), 2000);
   }
 
   function handleWhatsApp() {
