@@ -80,6 +80,9 @@ export async function logDailyCheckIn(
 
   const status = String(formData.get("status") ?? "") as FoodStatus;
   const hasFoodStatus = ["yes", "no", "partial"].includes(status);
+  const { url: newPhotoUrl, error: photoError } = await uploadPhoto(formData, "photo");
+  if (photoError) return { error: photoError };
+  const hasPhoto = !!newPhotoUrl;
 
   const workedOut = formData.get("workedOut") === "on";
   const newlyLoggedTypes: CheckInType[] = [];
@@ -124,17 +127,23 @@ export async function logDailyCheckIn(
     }
   }
 
-  if (hasFoodStatus) {
+  // A photo can be logged on its own — it no longer requires also answering the nutrition
+  // question, so this block runs whenever either is present, not just on hasFoodStatus.
+  if (hasFoodStatus || hasPhoto) {
     const foodNote = String(formData.get("foodNote") ?? "").trim() || undefined;
-    const { url: newFoodPhotoUrl, error: foodPhotoError } = await uploadPhoto(formData, "foodPhoto");
-    if (foodPhotoError) return { error: foodPhotoError };
 
     const existingFood = await getTodaysCheckIn(user.id, "food");
     if (existingFood) {
       const existingValue = existingFood.value as FoodCheckInValue;
       await db
         .update(checkIns)
-        .set({ value: { status, note: foodNote, photoUrl: newFoodPhotoUrl ?? existingValue.photoUrl } })
+        .set({
+          value: {
+            status: hasFoodStatus ? status : existingValue.status,
+            note: foodNote,
+            photoUrl: newPhotoUrl ?? existingValue.photoUrl,
+          },
+        })
         .where(eq(checkIns.id, existingFood.id));
     } else {
       const [row] = await db
@@ -142,7 +151,7 @@ export async function logDailyCheckIn(
         .values({
           userId: user.id,
           type: "food",
-          value: { status, note: foodNote, photoUrl: newFoodPhotoUrl },
+          value: { status: hasFoodStatus ? status : undefined, note: foodNote, photoUrl: newPhotoUrl },
           visibility: "public_to_clan",
         })
         .returning({ id: checkIns.id });
