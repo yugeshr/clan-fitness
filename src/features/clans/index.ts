@@ -12,8 +12,10 @@ export {
   getClanByInviteCode,
   getClanMemberCount,
   getClanMembers,
+  getClanMembersForClanIds,
   getClanMembership,
   getUserClans,
+  getUserClansAsOf,
 } from "./queries";
 export { ClanLeaderboardSection } from "./components/ClanLeaderboardSection";
 export type { LeaderboardEntry } from "./components/ClanLeaderboardSection";

@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { checkIns, users } from "@/db/schema";
+import { checkIns, clanMemberships, users } from "@/db/schema";
 import type { CheckInType, StepsCheckInValue } from "./types";
 
 export const FEED_PAGE_SIZE = 20;
@@ -18,13 +18,22 @@ function startOfWeek() {
   return date;
 }
 
+// A check-in has no clanId of its own — it's visible in a clan's feed whenever its author is
+// (still) a member of that clan and it was logged after they joined. No row-fanout risk: the
+// unique (userId, clanId) index on clanMemberships means at most one membership row matches per
+// checkIns.userId for a fixed clanId filter.
 export async function getClanFeed(clanId: string, before?: Date) {
-  const conditions = [eq(checkIns.clanId, clanId), eq(checkIns.visibility, "public_to_clan")];
+  const conditions = [
+    eq(clanMemberships.clanId, clanId),
+    eq(checkIns.visibility, "public_to_clan"),
+    gte(checkIns.createdAt, clanMemberships.joinedAt),
+  ];
   if (before) conditions.push(lt(checkIns.createdAt, before));
 
   return db
     .select({ checkIn: checkIns, user: users })
     .from(checkIns)
+    .innerJoin(clanMemberships, eq(checkIns.userId, clanMemberships.userId))
     .innerJoin(users, eq(checkIns.userId, users.id))
     .where(and(...conditions))
     .orderBy(desc(checkIns.createdAt))
@@ -34,12 +43,17 @@ export async function getClanFeed(clanId: string, before?: Date) {
 export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>[number];
 
 export async function getLatestCheckInAt(clanId: string, excludeUserId?: string) {
-  const conditions = [eq(checkIns.clanId, clanId), eq(checkIns.visibility, "public_to_clan")];
+  const conditions = [
+    eq(clanMemberships.clanId, clanId),
+    eq(checkIns.visibility, "public_to_clan"),
+    gte(checkIns.createdAt, clanMemberships.joinedAt),
+  ];
   if (excludeUserId) conditions.push(ne(checkIns.userId, excludeUserId));
 
   const [row] = await db
     .select({ createdAt: checkIns.createdAt })
     .from(checkIns)
+    .innerJoin(clanMemberships, eq(checkIns.userId, clanMemberships.userId))
     .where(and(...conditions))
     .orderBy(desc(checkIns.createdAt))
     .limit(1);

@@ -70,6 +70,7 @@ export const clanMemberships = pgTable(
     uniqueIndex("clan_memberships_one_admin_idx")
       .on(t.clanId)
       .where(sql`${t.role} = 'admin'`),
+    index("clan_memberships_clan_idx").on(t.clanId),
   ],
 );
 
@@ -94,13 +95,14 @@ export const checkIns = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    clanId: uuid("clan_id").references(() => clans.id),
+    // No clanId: a check-in is a personal record, visible in every clan the user is a member of
+    // (see getClanFeed's join against clanMemberships), not owned by a single clan.
     type: checkInTypeEnum("type").notNull(),
     value: jsonb("value").notNull(),
     visibility: checkInVisibilityEnum("visibility").notNull().default("public_to_clan"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("check_ins_clan_created_at_idx").on(t.clanId, t.createdAt)],
+  (t) => [index("check_ins_created_at_idx").on(t.createdAt)],
 );
 
 export const reactions = pgTable(
