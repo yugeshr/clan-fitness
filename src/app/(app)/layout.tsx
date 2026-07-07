@@ -15,8 +15,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const memberships = await getUserClans(userId);
   if (memberships.length === 0) redirect("/onboarding");
 
-  const primaryClanId = memberships[0]?.clan.id;
-  const latestFeedCheckInAt = primaryClanId ? await getLatestCheckInAt(primaryClanId, userId) : null;
+  const clans = memberships.map((m) => m.clan);
+  const latestFeedCheckInAtByClan = await Promise.all(
+    clans.map(async (clan) => ({
+      clanId: clan.id,
+      latestCheckInAt: await getLatestCheckInAt(clan.id, userId),
+    })),
+  );
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
@@ -29,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             Clan <span className="text-accent">Fitness</span>
           </Link>
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <ClanSwitcher clans={memberships.map((m) => m.clan)} />
+            <ClanSwitcher clans={clans} />
             <UserButton />
           </div>
         </div>
@@ -37,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="flex-1 pt-[calc(4rem+env(safe-area-inset-top))] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
         {children}
       </main>
-      <BottomNav clanId={primaryClanId} latestFeedCheckInAt={latestFeedCheckInAt} />
+      <BottomNav clans={clans} latestFeedCheckInAtByClan={latestFeedCheckInAtByClan} />
       <AutoEnableNotifications />
     </div>
   );

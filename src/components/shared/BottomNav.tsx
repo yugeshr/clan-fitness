@@ -4,6 +4,7 @@ import { Activity, House, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
+import { ACTIVE_CLAN_STORAGE_KEY, resolveActiveClanId, type ClanOption } from "@/lib/active-clan";
 
 type NavItem = {
   href: string;
@@ -18,14 +19,23 @@ function feedSeenKey(clanId: string) {
 }
 
 export function BottomNav({
-  clanId,
-  latestFeedCheckInAt,
+  clans,
+  latestFeedCheckInAtByClan,
 }: {
-  clanId?: string;
-  latestFeedCheckInAt?: Date | null;
+  clans: ClanOption[];
+  latestFeedCheckInAtByClan: { clanId: string; latestCheckInAt: Date | null }[];
 }) {
   const pathname = usePathname();
   const [seenAt, setSeenAt] = useState<Date | null>(null);
+  // Starts null (matches server render); only reads localStorage after mount, so the pathname
+  // tier alone determines clanId during SSR/hydration — see resolveActiveClanId's docs.
+  const [storedClanId, setStoredClanId] = useState<string | null>(null);
+  const clanId = resolveActiveClanId(pathname, clans, storedClanId);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStoredClanId(localStorage.getItem(ACTIVE_CLAN_STORAGE_KEY));
+  }, []);
 
   // Reads localStorage, which only exists in the browser — inherently can't be derived during render.
   useEffect(() => {
@@ -43,7 +53,16 @@ export function BottomNav({
     setSeenAt(now);
   }, [clanId, pathname]);
 
-  const hasUnreadFeed = !!latestFeedCheckInAt && (!seenAt || seenAt < latestFeedCheckInAt);
+  // Tracks "active clan" from wherever the user actually lands (dropdown, notification link,
+  // typed URL, back button) so ClanSwitcher stays correct even when it wasn't the thing that
+  // navigated here.
+  useEffect(() => {
+    if (!clanId) return;
+    localStorage.setItem(ACTIVE_CLAN_STORAGE_KEY, clanId);
+  }, [clanId]);
+
+  const latestCheckInAt = latestFeedCheckInAtByClan.find((c) => c.clanId === clanId)?.latestCheckInAt ?? null;
+  const hasUnreadFeed = !!latestCheckInAt && (!seenAt || seenAt < latestCheckInAt);
 
   const items: NavItem[] = [
     ...(clanId
