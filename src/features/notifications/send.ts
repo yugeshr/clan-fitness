@@ -3,7 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import webpush from "web-push";
 import { db } from "@/db";
-import { pushSubscriptions, users } from "@/db/schema";
+import { notifications, pushSubscriptions, users } from "@/db/schema";
 import { getPushSubscriptionsForUser } from "./queries";
 import { sendEmailNotification } from "./send-email";
 import type { NotificationPayload } from "./types";
@@ -60,10 +60,22 @@ async function sendPushNotifications(userId: string, payload: NotificationPayloa
   );
 }
 
+async function persistNotification(userId: string, payload: NotificationPayload) {
+  await db.insert(notifications).values({
+    userId,
+    type: payload.type,
+    title: payload.title,
+    body: payload.body,
+    url: payload.url,
+    checkInId: payload.checkInId,
+  });
+}
+
 /**
  * Notifies a user through every channel available to them: push (if they have any subscribed
- * devices) and email (if they have an address on file). Both run rather than one replacing the
- * other, since push has had ongoing delivery issues — email is a backup channel, not a swap.
+ * devices), email (if they have an address on file), and an in-app notification row (always).
+ * All three run rather than one replacing another — push has had ongoing delivery issues, so
+ * email is a backup channel and the in-app record is the durable source of truth either way.
  */
 export async function notifyUser(userId: string, payload: NotificationPayload) {
   const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
@@ -71,5 +83,6 @@ export async function notifyUser(userId: string, payload: NotificationPayload) {
   await Promise.all([
     sendPushNotifications(userId, payload),
     user?.email ? sendEmailNotification(user.email, payload) : Promise.resolve(),
+    persistNotification(userId, payload),
   ]);
 }

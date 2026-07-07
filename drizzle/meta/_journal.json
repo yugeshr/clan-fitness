@@ -43,6 +43,13 @@
       "when": 1783388671441,
       "tag": "0005_public_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783414468157,
+      "tag": "0006_material_zzzax",
+      "breakpoints": true
     }
   ]
 }

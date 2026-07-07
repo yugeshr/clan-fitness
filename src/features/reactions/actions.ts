@@ -43,9 +43,11 @@ export async function toggleReaction(
     if (checkIn.userId !== user.id) {
       after(() =>
         notifyUser(checkIn.userId, {
+          type: "reaction",
           title: `${user.name} reacted ${emoji} to your check-in`,
           body: "Tap to see it.",
           url: visibleClanIds[0] ? `/clans/${visibleClanIds[0]}` : "/logs",
+          checkInId,
         }),
       );
     }

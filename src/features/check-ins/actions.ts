@@ -27,7 +27,7 @@ async function notifyClansOfCheckIn(actorId: string, actorName: string, types: C
   const url = `/clans/${clanIds[0]}`;
   await Promise.all(
     [...recipientIds].map((userId) =>
-      notifyUser(userId, { title: `${actorName} checked in`, body: `Logged: ${label}`, url }),
+      notifyUser(userId, { type: "check_in", title: `${actorName} checked in`, body: `Logged: ${label}`, url }),
     ),
   );
 }

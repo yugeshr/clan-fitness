@@ -147,3 +147,32 @@ export const pushSubscriptions = pgTable(
   },
   (t) => [index("push_subscriptions_user_idx").on(t.userId)],
 );
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "comment",
+  "mention",
+  "reaction",
+  "check_in",
+  "missed_log", // reserved for a future cron-driven reminder; unused for now
+]);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    type: notificationTypeEnum("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    url: text("url"),
+    checkInId: uuid("check_in_id").references(() => checkIns.id),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("notifications_user_created_at_idx").on(t.userId, t.createdAt),
+    index("notifications_user_unread_idx").on(t.userId).where(sql`${t.readAt} is null`),
+  ],
+);

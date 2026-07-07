@@ -52,17 +52,27 @@ export async function addComment(
   const memberIds = new Set(members.map((m) => m.user.id));
   const mentionedIds = new Set(extractMentionedUserIds(trimmed).filter((id) => memberIds.has(id) && id !== user.id));
 
-  const recipients = new Map<string, { title: string; body: string }>();
+  const recipients = new Map<string, { type: "comment" | "mention"; title: string; body: string }>();
   if (checkIn.userId !== user.id && !mentionedIds.has(checkIn.userId)) {
-    recipients.set(checkIn.userId, { title: `${user.name} commented on your check-in`, body: displayText });
+    recipients.set(checkIn.userId, {
+      type: "comment",
+      title: `${user.name} commented on your check-in`,
+      body: displayText,
+    });
   }
   for (const mentionedId of mentionedIds) {
-    recipients.set(mentionedId, { title: `${user.name} mentioned you in a comment`, body: displayText });
+    recipients.set(mentionedId, {
+      type: "mention",
+      title: `${user.name} mentioned you in a comment`,
+      body: displayText,
+    });
   }
 
   if (recipients.size > 0) {
     const url = clanIds[0] ? `/clans/${clanIds[0]}` : "/logs";
-    after(() => Promise.all([...recipients].map(([userId, payload]) => notifyUser(userId, { ...payload, url }))));
+    after(() =>
+      Promise.all([...recipients].map(([userId, payload]) => notifyUser(userId, { ...payload, url, checkInId }))),
+    );
   }
 
   return {
