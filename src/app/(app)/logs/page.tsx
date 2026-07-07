@@ -8,6 +8,7 @@ import {
   getUserStreak,
   getUserWeeklyCount,
 } from "@/features/check-ins";
+import { getFoodPhotoUrls } from "@/features/check-ins/types";
 import type { FoodCheckInValue, GymCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
 import { getUserGoals } from "@/features/goals";
 
@@ -86,7 +87,7 @@ export default async function LogsPage() {
         dailyStepsTarget={dailyStepsTarget}
         currentFoodStatus={foodValue?.status}
         existingFoodNote={foodValue?.note}
-        existingPhotoUrls={foodValue?.photoUrls ?? []}
+        existingPhotoUrls={getFoodPhotoUrls(foodValue)}
         hasLoggedToday={!!(gymCheckIn || stepsCheckIn || foodCheckIn)}
       />
     </div>
