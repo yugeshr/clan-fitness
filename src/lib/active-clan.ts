@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 export type ClanOption = { id: string; name: string };
 
 export const ACTIVE_CLAN_STORAGE_KEY = "active-clan-id";
@@ -29,4 +31,33 @@ export function resolveActiveClanId(
   if (fromPath && clans.some((c) => c.id === fromPath)) return fromPath;
   if (storedClanId && clans.some((c) => c.id === storedClanId)) return storedClanId;
   return clans[0]?.id ?? null;
+}
+
+/**
+ * Resolves the active clan and keeps it persisted across the session. Reading localStorage only
+ * once at mount (into `storedClanId`) isn't enough on its own: after visiting a clan page and then
+ * navigating to a clan-less route like /logs, `resolveActiveClanId` needs storedClanId to already
+ * reflect that visit — but a mount-only read never updates, so it falls back to clans[0] instead.
+ * This hook closes that gap by syncing its own state (not just localStorage) every time the
+ * pathname resolves to a real clan, so every consumer — this hook is called independently by both
+ * ClanSwitcher and BottomNav — stays correct without needing to share state across components.
+ */
+export function useActiveClanId(pathname: string, clans: ClanOption[]): string | null {
+  const [storedClanId, setStoredClanId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStoredClanId(localStorage.getItem(ACTIVE_CLAN_STORAGE_KEY));
+  }, []);
+
+  const clanId = resolveActiveClanId(pathname, clans, storedClanId);
+
+  useEffect(() => {
+    if (!clanId) return;
+    localStorage.setItem(ACTIVE_CLAN_STORAGE_KEY, clanId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStoredClanId(clanId);
+  }, [clanId]);
+
+  return clanId;
 }

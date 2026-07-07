@@ -2,26 +2,18 @@
 
 import { ChevronDown, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ACTIVE_CLAN_STORAGE_KEY, resolveActiveClanId, type ClanOption } from "@/lib/active-clan";
+import { useActiveClanId, type ClanOption } from "@/lib/active-clan";
 
 export function ClanSwitcher({ clans }: { clans: ClanOption[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  // Starts null (matches server render) — only reads localStorage after mount, so the pathname
-  // tier alone determines the value during SSR/hydration. See resolveActiveClanId's docs.
-  const [storedClanId, setStoredClanId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStoredClanId(localStorage.getItem(ACTIVE_CLAN_STORAGE_KEY));
-  }, []);
+  const currentClanId = useActiveClanId(pathname, clans);
 
   if (clans.length === 0) return null;
 
-  const currentClanId = resolveActiveClanId(pathname, clans, storedClanId);
   const currentClan = clans.find((c) => c.id === currentClanId) ?? clans[0];
 
   function go(path: string) {
