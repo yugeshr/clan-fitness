@@ -4,6 +4,7 @@ export {
   getCheckInById,
   getClanFeed,
   getLatestCheckInAt,
+  getStepGoalStreaks,
   getStreaks,
   getTodaysCheckIn,
   getUserStreak,

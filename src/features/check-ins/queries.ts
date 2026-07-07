@@ -171,3 +171,30 @@ export async function getStreaks(userIds: string[], type: CheckInType) {
   }
   return streaks;
 }
+
+// Like getStreaks, but a day only counts if that day's steps met the user's daily target —
+// logging a check-in isn't enough on its own. dailyTargetsByUser must already have a default
+// filled in per user; this function doesn't know about any fallback target.
+export async function getStepGoalStreaks(userIds: string[], dailyTargetsByUser: Map<string, number>) {
+  const streaks = new Map<string, number>();
+  if (userIds.length === 0) return streaks;
+
+  const rows = await db
+    .select({ userId: checkIns.userId, createdAt: checkIns.createdAt, value: checkIns.value })
+    .from(checkIns)
+    .where(and(inArray(checkIns.userId, userIds), eq(checkIns.type, "steps")));
+
+  const dayKeysByUser = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const { count } = row.value as StepsCheckInValue;
+    if (count < (dailyTargetsByUser.get(row.userId) ?? Infinity)) continue;
+    const dayKeys = dayKeysByUser.get(row.userId) ?? new Set<string>();
+    dayKeys.add(row.createdAt.toISOString().slice(0, 10));
+    dayKeysByUser.set(row.userId, dayKeys);
+  }
+
+  for (const userId of userIds) {
+    streaks.set(userId, streakFromDayKeys(dayKeysByUser.get(userId) ?? new Set()));
+  }
+  return streaks;
+}

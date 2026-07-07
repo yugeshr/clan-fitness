@@ -1,7 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
-import { getStreaks, getUsersLoggedToday, getWeeklyCounts, getWeeklyStepsTotals } from "@/features/check-ins";
+import {
+  getStepGoalStreaks,
+  getUsersLoggedToday,
+  getWeeklyCounts,
+  getWeeklyStepsTotals,
+} from "@/features/check-ins";
 import {
   ClanLeaderboardSection,
   ClanMembersSection,
@@ -13,8 +18,7 @@ import { getGoalsForUsers } from "@/features/goals";
 
 const DEFAULT_WEEKLY_GYM_TARGET = 4;
 const DEFAULT_DAILY_STEPS_TARGET = 8000;
-const STEP_WEIGHT = 0.4;
-const GYM_WEIGHT = 0.4;
+const STEP_WEIGHT = 0.8;
 const STREAK_WEIGHT = 0.2;
 const STREAK_CAP_DAYS = 7;
 
@@ -30,21 +34,24 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
   if (!clan || !membership) notFound();
 
   const memberIds = members.map((m) => m.user.id);
-  const [loggedToday, weeklyCounts, weeklyStepsTotals, streaks, gymGoals, stepsGoals] = await Promise.all([
+  const [loggedToday, weeklyCounts, weeklyStepsTotals, gymGoals, stepsGoals] = await Promise.all([
     getUsersLoggedToday(memberIds),
     getWeeklyCounts(memberIds, "gym"),
     getWeeklyStepsTotals(memberIds),
-    getStreaks(memberIds, "gym"),
     getGoalsForUsers(memberIds, "gym"),
     getGoalsForUsers(memberIds, "steps"),
   ]);
   const isAdmin = membership.role === "admin";
 
-  // Position is a weighted composite of three 0-100 scores, each capped at 100 so blowing past a
-  // goal can't be used to coast on the others: steps % of personal goal (40%), gym % of personal
-  // goal (40%), and streak normalized against a 7-day cap (20%). Streak is folded into the score
-  // itself rather than left as a pure tiebreaker, since a long streak reflects real consistency
-  // that neither of the other two metrics captures on its own.
+  // Gym turnout is too low across most clans for a gym-based score to be a fair ranking signal —
+  // it's shown on the card for context, but position is steps-only: % of weekly steps goal (80%)
+  // plus a streak of days the steps *goal* was actually hit, capped at 7 days (20%), not just days
+  // with any steps logged at all.
+  const dailyStepTargets = new Map(
+    memberIds.map((id) => [id, stepsGoals.get(id) ?? DEFAULT_DAILY_STEPS_TARGET]),
+  );
+  const streaks = await getStepGoalStreaks(memberIds, dailyStepTargets);
+
   const leaderboard = members
     .map(({ user }) => {
       const weeklyCount = weeklyCounts.get(user.id) ?? 0;
@@ -56,7 +63,7 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
       const stepPct = Math.min(weeklySteps / weeklyStepsTarget, 1) * 100;
       const gymPct = Math.min(weeklyCount / weeklyTarget, 1) * 100;
       const streakPct = Math.min(streak / STREAK_CAP_DAYS, 1) * 100;
-      const score = STEP_WEIGHT * stepPct + GYM_WEIGHT * gymPct + STREAK_WEIGHT * streakPct;
+      const score = STEP_WEIGHT * stepPct + STREAK_WEIGHT * streakPct;
 
       return { user, weeklyCount, weeklyTarget, weeklySteps, weeklyStepsTarget, streak, stepPct, gymPct, score };
     })
