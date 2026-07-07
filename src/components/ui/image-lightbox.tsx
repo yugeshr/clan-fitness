@@ -1,35 +1,37 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export function ImageLightbox({
-  src,
-  alt = "",
+  images,
+  initialIndex,
   onClose,
 }: {
-  src: string | null;
-  alt?: string;
+  images: string[];
+  initialIndex: number;
   onClose: () => void;
 }) {
-  const open = src !== null;
+  const open = images.length > 0;
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(false);
-  const [displaySrc, setDisplaySrc] = useState(src);
+  const [displayImages, setDisplayImages] = useState(images);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  // Cache the last non-null src so the exit transition still has an image to fade out, since
-  // `src` itself goes back to null before the unmount timeout below fires — same justified
+  // Cache the last non-empty images so the exit transition still has something to fade out, since
+  // `images` itself goes back to [] before the unmount timeout below fires — same justified
   // exception as the mount/visible machinery below: this mirrors an external prop transition
   // over time, not a plain derivation available during a single render.
   useEffect(() => {
-    if (src) {
+    if (images.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDisplaySrc(src);
+      setDisplayImages(images);
     }
-  }, [src]);
+  }, [images]);
 
   // Mount/unmount is staggered around the CSS transition (enter: mount then animate next frame;
   // exit: animate then unmount after the transition duration) — inherently timing-driven, not derivable during render.
@@ -54,16 +56,41 @@ export function ImageLightbox({
     };
   }, [mounted]);
 
+  // Positions the track at the tapped photo the instant the lightbox opens — no scroll animation,
+  // since a slide-in-from-0 would look like a glitch rather than an intentional entrance.
+  useEffect(() => {
+    if (!mounted) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveIndex(initialIndex);
+    const el = trackRef.current;
+    if (el) el.scrollLeft = initialIndex * el.clientWidth;
+  }, [mounted, initialIndex]);
+
+  function goTo(index: number) {
+    const clamped = Math.max(0, Math.min(index, displayImages.length - 1));
+    setActiveIndex(clamped);
+    trackRef.current?.scrollTo({ left: clamped * (trackRef.current?.clientWidth ?? 0), behavior: "smooth" });
+  }
+
   useEffect(() => {
     if (!mounted) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
+      else if (event.key === "ArrowLeft") goTo(activeIndex - 1);
+      else if (event.key === "ArrowRight") goTo(activeIndex + 1);
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [mounted, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, onClose, activeIndex, displayImages.length]);
 
-  if (!mounted || !displaySrc) return null;
+  function handleScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setActiveIndex(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  if (!mounted || displayImages.length === 0) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50">
@@ -82,8 +109,56 @@ export function ImageLightbox({
           visible ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
       >
-        <Image src={displaySrc} alt={alt} fill sizes="92vw" className="object-contain" />
+        <div
+          ref={trackRef}
+          onScroll={displayImages.length > 1 ? handleScroll : undefined}
+          className={`flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth ${
+            displayImages.length > 1 ? "" : "overflow-x-hidden"
+          }`}
+        >
+          {displayImages.map((src) => (
+            <div key={src} className="relative h-full w-full shrink-0 snap-center">
+              <Image src={src} alt="" fill sizes="92vw" className="object-contain" />
+            </div>
+          ))}
+        </div>
       </div>
+
+      {displayImages.length > 1 && (
+        <>
+          {activeIndex > 0 && (
+            <button
+              type="button"
+              onClick={() => goTo(activeIndex - 1)}
+              aria-label="Previous photo"
+              className="fixed left-4 top-1/2 z-20 -translate-y-1/2 -m-2.5 rounded-full bg-surface p-2.5 text-foreground shadow-[4px_4px_0_0_var(--edge)] hover:text-accent"
+            >
+              <ChevronLeft size={22} />
+            </button>
+          )}
+          {activeIndex < displayImages.length - 1 && (
+            <button
+              type="button"
+              onClick={() => goTo(activeIndex + 1)}
+              aria-label="Next photo"
+              className="fixed right-4 top-1/2 z-20 -translate-y-1/2 -m-2.5 rounded-full bg-surface p-2.5 text-foreground shadow-[4px_4px_0_0_var(--edge)] hover:text-accent"
+            >
+              <ChevronRight size={22} />
+            </button>
+          )}
+          <div className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 flex justify-center gap-1.5">
+            {displayImages.map((_, i) => (
+              <span
+                key={i}
+                className={`h-2 rounded-full transition-all duration-200 ${
+                  i === activeIndex ? "w-5 bg-white" : "w-2 bg-white/50"
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
       <button
         type="button"
         ref={closeRef}

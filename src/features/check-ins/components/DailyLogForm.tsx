@@ -1,5 +1,7 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
+import { Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,16 @@ const STATUS_OPTIONS: { value: FoodStatus; label: string }[] = [
   { value: "partial", label: "Partial" },
 ];
 
+const MAX_PHOTOS = 3;
+// Pre-compression sanity cap. Not a platform requirement (photos upload client-direct to Blob,
+// bypassing the Server Action body entirely) — just bounding canvas-decode cost on lower-end
+// phones when up to 3 images might be compressing at once, and failing fast on a pathological file.
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+type PhotoSlot =
+  | { kind: "existing"; url: string }
+  | { kind: "new"; previewUrl: string; url?: string; error?: string; uploading: boolean; abort: AbortController };
+
 // Full-height pill wrapping the native input, not just the text, so the tappable area meets the
 // ~44px touch-target minimum on mobile — a bare `<input>` + label text was too small to hit reliably.
 const TOGGLE_LABEL_CLASS =
@@ -26,7 +38,7 @@ export function DailyLogForm({
   dailyStepsTarget,
   currentFoodStatus,
   existingFoodNote,
-  existingFoodPhotoUrl,
+  existingPhotoUrls,
   hasLoggedToday,
 }: {
   alreadyWorkedOut: boolean;
@@ -35,27 +47,70 @@ export function DailyLogForm({
   dailyStepsTarget?: number;
   currentFoodStatus?: FoodStatus;
   existingFoodNote?: string;
-  existingFoodPhotoUrl?: string;
+  existingPhotoUrls?: string[];
   hasLoggedToday: boolean;
 }) {
   const [state, action, pending] = useActionState(logDailyCheckIn, undefined);
-  const [compressing, setCompressing] = useState(false);
+  const [photos, setPhotos] = useState<PhotoSlot[]>(
+    (existingPhotoUrls ?? []).map((url) => ({ kind: "existing", url })),
+  );
 
-  async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotosChange(event: React.ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    if (files.length === 0) return;
 
-    setCompressing(true);
-    try {
-      const compressed = await compressImage(file);
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(compressed);
-      input.files = dataTransfer.files;
-    } finally {
-      setCompressing(false);
+    const accepted = files.slice(0, MAX_PHOTOS - photos.length);
+
+    for (const file of accepted) {
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > MAX_PHOTO_BYTES) {
+        const slot: PhotoSlot = {
+          kind: "new",
+          previewUrl: "",
+          uploading: false,
+          error: "Photo must be under 10MB.",
+          abort: new AbortController(),
+        };
+        setPhotos((prev) => [...prev, slot]);
+        continue;
+      }
+
+      const abort = new AbortController();
+      const previewUrl = URL.createObjectURL(file);
+      const slot: PhotoSlot = { kind: "new", previewUrl, uploading: true, abort };
+      setPhotos((prev) => [...prev, slot]);
+
+      // Independent per-file pipeline — one failure never blocks or delays the others.
+      (async () => {
+        try {
+          const compressed = await compressImage(file);
+          const blob = await upload(`check-ins/${compressed.name}`, compressed, {
+            access: "public",
+            handleUploadUrl: "/api/check-ins/upload",
+            abortSignal: abort.signal,
+          });
+          setPhotos((prev) => prev.map((p) => (p === slot ? { ...p, uploading: false, url: blob.url } : p)));
+        } catch {
+          setPhotos((prev) =>
+            prev.map((p) => (p === slot ? { ...p, uploading: false, error: "Upload failed." } : p)),
+          );
+        }
+      })();
     }
   }
+
+  function removePhoto(target: PhotoSlot) {
+    if (target.kind === "new") {
+      target.abort.abort();
+      if (target.previewUrl) URL.revokeObjectURL(target.previewUrl);
+    }
+    setPhotos((prev) => prev.filter((p) => p !== target));
+  }
+
+  const anyUploading = photos.some((p) => p.kind === "new" && p.uploading);
+  const uploadedUrls = photos.map((p) => p.url).filter((url): url is string => !!url);
 
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -121,36 +176,78 @@ export function DailyLogForm({
 
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold text-foreground">Photo</h2>
-        <label htmlFor="photo" className="text-xs text-foreground-tertiary">
-          {existingFoodPhotoUrl ? "Replace photo" : "Optional photo — saves on its own, no other answer needed"}
+        <label htmlFor="photos" className="text-xs text-foreground-tertiary">
+          {photos.length > 0
+            ? `${photos.length}/${MAX_PHOTOS} photos`
+            : "Optional photos — saves on their own, no other answer needed"}
         </label>
-        {existingFoodPhotoUrl && (
-          <div className="flex items-center gap-2">
-            <Image
-              src={existingFoodPhotoUrl}
-              alt="Current photo"
-              width={56}
-              height={56}
-              className="h-14 w-14 rounded-lg object-cover"
-            />
-            <p className="text-xs text-foreground-tertiary">
-              Current photo — pick a new file below to replace it.
-            </p>
+        {photos.length > 0 && (
+          <div className="flex flex-wrap gap-2 pb-3">
+            {photos.map((slot, i) => {
+              const previewSrc = slot.kind === "existing" ? slot.url : slot.previewUrl || undefined;
+              return (
+                <div key={i} className="relative h-14 w-14 shrink-0">
+                  {previewSrc ? (
+                    slot.kind === "existing" ? (
+                      <Image
+                        src={previewSrc}
+                        alt=""
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 rounded-lg object-cover"
+                      />
+                    ) : (
+                      // Local blob: preview of a not-yet-optimized file — next/image can't render blob: URLs.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={previewSrc} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                    )
+                  ) : (
+                    <div className="h-14 w-14 rounded-lg border border-danger bg-surface" />
+                  )}
+                  {slot.kind === "new" && slot.uploading && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40"
+                      role="status"
+                      aria-label="Uploading photo"
+                    >
+                      <Loader2 size={20} className="animate-spin text-white" />
+                    </div>
+                  )}
+                  {slot.kind === "new" && slot.error && (
+                    <p className="absolute top-full left-0 w-14 truncate pt-0.5 text-center text-[9px] text-danger">
+                      {slot.error}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(slot)}
+                    aria-label="Remove photo"
+                    className="absolute -right-1.5 -top-1.5 rounded-full bg-surface p-0.5 text-foreground-tertiary shadow-[2px_2px_0_0_var(--edge)] hover:text-danger"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
-        <input
-          id="photo"
-          type="file"
-          name="photo"
-          accept="image/*"
-          onChange={handlePhotoChange}
-          className="text-sm text-foreground-secondary file:mr-3 file:rounded-none file:border file:border-surface-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
-        />
-        {compressing && <p className="text-xs text-foreground-muted">Compressing photo...</p>}
+        {photos.length < MAX_PHOTOS && (
+          <input
+            id="photos"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotosChange}
+            className="text-sm text-foreground-secondary file:mr-3 file:rounded-none file:border file:border-surface-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
+          />
+        )}
+        {uploadedUrls.map((url) => (
+          <input key={url} type="hidden" name="photoUrls" value={url} />
+        ))}
       </div>
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
-      <Button type="submit" disabled={pending || compressing}>
+      <Button type="submit" disabled={pending || anyUploading}>
         {pending ? "Saving..." : hasLoggedToday ? "Update today's log" : "Save today's log"}
       </Button>
     </form>

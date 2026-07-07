@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
+import { PhotoCarousel } from "@/components/ui/photo-carousel";
 import type { FeedRow } from "@/features/check-ins";
 import type { FoodCheckInValue } from "@/features/check-ins/types";
 import { CommentSheet } from "@/features/comments/components/CommentSheet";
@@ -43,7 +43,7 @@ export function FeedList({
   const [comments, setComments] = useState(initialComments);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
-  const [openImage, setOpenImage] = useState<string | null>(null);
+  const [openGallery, setOpenGallery] = useState<{ photos: string[]; index: number } | null>(null);
   const [highlighted, setHighlighted] = useState(!!highlightCheckInId);
 
   // Scrolls to and briefly highlights the card a notification linked to. Runs once on mount —
@@ -113,32 +113,20 @@ export function FeedList({
                     </div>
                     <div className="flex flex-col gap-1">
                       {group.entries.map((checkIn) => {
-                        const photoUrl =
+                        const photoUrls =
                           checkIn.type === "food"
-                            ? (checkIn.value as FoodCheckInValue).photoUrl
-                            : undefined;
+                            ? (checkIn.value as FoodCheckInValue).photoUrls ?? []
+                            : [];
                         return (
                           <div key={checkIn.id} className="flex flex-col gap-2">
                             <p className="flex items-center gap-1.5 text-sm text-foreground-secondary">
                               <span aria-hidden>{TYPE_ICON[checkIn.type] ?? "✅"}</span>
                               {describeCheckIn(checkIn.type, checkIn.value)}
                             </p>
-                            {photoUrl && (
-                              <button
-                                type="button"
-                                onClick={() => setOpenImage(photoUrl)}
-                                aria-label="View photo full-screen"
-                                className="block w-full max-w-xs cursor-zoom-in"
-                              >
-                                <Image
-                                  src={photoUrl}
-                                  alt=""
-                                  width={320}
-                                  height={240}
-                                  className="max-h-60 w-full max-w-xs rounded-lg border border-surface-border object-cover"
-                                />
-                              </button>
-                            )}
+                            <PhotoCarousel
+                              photos={photoUrls}
+                              onPhotoClick={(index) => setOpenGallery({ photos: photoUrls, index })}
+                            />
                           </div>
                         );
                       })}
@@ -178,7 +166,11 @@ export function FeedList({
         </button>
       )}
 
-      <ImageLightbox src={openImage} onClose={() => setOpenImage(null)} />
+      <ImageLightbox
+        images={openGallery?.photos ?? []}
+        initialIndex={openGallery?.index ?? 0}
+        onClose={() => setOpenGallery(null)}
+      />
     </div>
   );
 }
