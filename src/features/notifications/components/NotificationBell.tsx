@@ -34,7 +34,9 @@ export function NotificationBell({ initialUnreadCount }: { initialUnreadCount: n
 
   function handleItemClick(item: NotificationRow) {
     setOpen(false);
-    if (item.url) router.push(item.url);
+    if (!item.url) return;
+    const url = item.checkInId ? `${item.url}?checkIn=${item.checkInId}` : item.url;
+    router.push(url);
   }
 
   return (

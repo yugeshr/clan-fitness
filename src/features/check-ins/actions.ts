@@ -12,8 +12,20 @@ import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { getTodaysCheckIn } from "./queries";
 import type { CheckInType, FoodCheckInValue, FoodStatus } from "./types";
 
-/** Notifies every member across every clan the actor is currently in, deduped so someone sharing 2+ clans with the actor isn't notified twice. */
-async function notifyClansOfCheckIn(actorId: string, actorName: string, types: CheckInType[]) {
+/**
+ * Notifies every member across every clan the actor is currently in, deduped so someone sharing
+ * 2+ clans with the actor isn't notified twice. `anchorCheckInId` lets the notification deep-link
+ * straight to that day's card instead of just the clan feed — it must be the *last*-inserted
+ * check-in of this submission, since the feed groups a user's same-day check-ins into one card
+ * keyed by its newest entry (see groupByUserAndDay), and that's the id ReactionBar/CommentSheet
+ * are bound to.
+ */
+async function notifyClansOfCheckIn(
+  actorId: string,
+  actorName: string,
+  types: CheckInType[],
+  anchorCheckInId?: string,
+) {
   if (types.length === 0) return;
 
   const actorClans = await getUserClans(actorId);
@@ -27,7 +39,13 @@ async function notifyClansOfCheckIn(actorId: string, actorName: string, types: C
   const url = `/clans/${clanIds[0]}`;
   await Promise.all(
     [...recipientIds].map((userId) =>
-      notifyUser(userId, { type: "check_in", title: `${actorName} checked in`, body: `Logged: ${label}`, url }),
+      notifyUser(userId, {
+        type: "check_in",
+        title: `${actorName} checked in`,
+        body: `Logged: ${label}`,
+        url,
+        checkInId: anchorCheckInId,
+      }),
     ),
   );
 }
@@ -65,6 +83,7 @@ export async function logDailyCheckIn(
 
   const workedOut = formData.get("workedOut") === "on";
   const newlyLoggedTypes: CheckInType[] = [];
+  let anchorCheckInId: string | undefined;
 
   const existingGym = await getTodaysCheckIn(user.id, "gym");
   if (workedOut || existingGym) {
@@ -72,13 +91,17 @@ export async function logDailyCheckIn(
     if (existingGym) {
       await db.update(checkIns).set({ value: { note: gymNote } }).where(eq(checkIns.id, existingGym.id));
     } else {
-      await db.insert(checkIns).values({
-        userId: user.id,
-        type: "gym",
-        value: { note: gymNote },
-        visibility: "public_to_clan",
-      });
+      const [row] = await db
+        .insert(checkIns)
+        .values({
+          userId: user.id,
+          type: "gym",
+          value: { note: gymNote },
+          visibility: "public_to_clan",
+        })
+        .returning({ id: checkIns.id });
       newlyLoggedTypes.push("gym");
+      anchorCheckInId = row.id;
     }
   }
 
@@ -87,13 +110,17 @@ export async function logDailyCheckIn(
     if (existingSteps) {
       await db.update(checkIns).set({ value: { count } }).where(eq(checkIns.id, existingSteps.id));
     } else {
-      await db.insert(checkIns).values({
-        userId: user.id,
-        type: "steps",
-        value: { count },
-        visibility: "public_to_clan",
-      });
+      const [row] = await db
+        .insert(checkIns)
+        .values({
+          userId: user.id,
+          type: "steps",
+          value: { count },
+          visibility: "public_to_clan",
+        })
+        .returning({ id: checkIns.id });
       newlyLoggedTypes.push("steps");
+      anchorCheckInId = row.id;
     }
   }
 
@@ -110,17 +137,21 @@ export async function logDailyCheckIn(
         .set({ value: { status, note: foodNote, photoUrl: newFoodPhotoUrl ?? existingValue.photoUrl } })
         .where(eq(checkIns.id, existingFood.id));
     } else {
-      await db.insert(checkIns).values({
-        userId: user.id,
-        type: "food",
-        value: { status, note: foodNote, photoUrl: newFoodPhotoUrl },
-        visibility: "public_to_clan",
-      });
+      const [row] = await db
+        .insert(checkIns)
+        .values({
+          userId: user.id,
+          type: "food",
+          value: { status, note: foodNote, photoUrl: newFoodPhotoUrl },
+          visibility: "public_to_clan",
+        })
+        .returning({ id: checkIns.id });
       newlyLoggedTypes.push("food");
+      anchorCheckInId = row.id;
     }
   }
 
-  after(() => notifyClansOfCheckIn(user.id, user.name, newlyLoggedTypes));
+  after(() => notifyClansOfCheckIn(user.id, user.name, newlyLoggedTypes, anchorCheckInId));
 
   revalidatePath("/logs");
 }

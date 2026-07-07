@@ -42,6 +42,12 @@ export async function getClanFeed(clanId: string, before?: Date) {
 
 export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>[number];
 
+/** Looked up only for its `createdAt`, to anchor a feed page around it — clan-visibility is enforced by getClanFeed's own join, not here. */
+export async function getCheckInById(checkInId: string) {
+  const [row] = await db.select({ id: checkIns.id, createdAt: checkIns.createdAt }).from(checkIns).where(eq(checkIns.id, checkInId));
+  return row ?? null;
+}
+
 export async function getLatestCheckInAt(clanId: string, excludeUserId?: string) {
   const conditions = [
     eq(clanMemberships.clanId, clanId),

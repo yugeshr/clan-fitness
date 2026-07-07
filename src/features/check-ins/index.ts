@@ -1,6 +1,7 @@
 export { logDailyCheckIn } from "./actions";
 export {
   FEED_PAGE_SIZE,
+  getCheckInById,
   getClanFeed,
   getLatestCheckInAt,
   getStreaks,

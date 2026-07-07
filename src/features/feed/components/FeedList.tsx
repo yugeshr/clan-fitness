@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import type { FeedRow } from "@/features/check-ins";
 import type { FoodCheckInValue } from "@/features/check-ins/types";
@@ -22,6 +22,7 @@ export function FeedList({
   initialReactions,
   initialComments,
   initialHasMore,
+  highlightCheckInId,
 }: {
   clanId: string;
   currentUserId?: string | null;
@@ -30,6 +31,7 @@ export function FeedList({
   initialReactions: Record<string, ReactionSummary>;
   initialComments: Record<string, CommentWithUser[]>;
   initialHasMore: boolean;
+  highlightCheckInId?: string;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [reactions, setReactions] = useState(initialReactions);
@@ -37,6 +39,19 @@ export function FeedList({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
   const [openImage, setOpenImage] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState(!!highlightCheckInId);
+
+  // Scrolls to and briefly highlights the card a notification linked to. Runs once on mount —
+  // ClanFeed already anchors initialRows so the target is present immediately, no need to react
+  // to later "load more" pages.
+  useEffect(() => {
+    if (!highlightCheckInId) return;
+    const el = document.getElementById(`feed-card-${highlightCheckInId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timeout = setTimeout(() => setHighlighted(false), 2000);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleLoadMore() {
     const cursor = rows[rows.length - 1]?.checkIn.createdAt;
@@ -66,10 +81,14 @@ export function FeedList({
           <ul className="flex flex-col gap-3">
             {section.cards.map((group) => {
               const cardId = group.entries[0].id;
+              const isHighlighted = highlighted && cardId === highlightCheckInId;
               return (
                 <li
                   key={group.user.id}
-                  className="flex items-start gap-3 rounded-lg border border-surface-border bg-surface p-3"
+                  id={`feed-card-${cardId}`}
+                  className={`flex items-start gap-3 rounded-lg border p-3 transition-colors duration-1000 ${
+                    isHighlighted ? "border-accent bg-accent/10" : "border-surface-border bg-surface"
+                  }`}
                 >
                   <Avatar src={group.user.avatarUrl} name={group.user.name} />
                   <div className="flex min-w-0 flex-1 flex-col gap-2">
