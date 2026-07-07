@@ -4,5 +4,6 @@ export type FoodStatus = "yes" | "no" | "partial";
 
 export type GymCheckInValue = { note?: string; durationMinutes?: number };
 export type StepsCheckInValue = { count: number };
-// status is optional: a photo can be logged on its own, independent of answering the nutrition question.
-export type FoodCheckInValue = { status?: FoodStatus; note?: string; photoUrl?: string };
+// status is optional: photos can be logged on their own, independent of answering the nutrition
+// question. Max 3 photos, enforced client-side (DailyLogForm) and server-side (logDailyCheckIn).
+export type FoodCheckInValue = { status?: FoodStatus; note?: string; photoUrls?: string[] };

@@ -1,6 +1,5 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -52,18 +51,12 @@ async function notifyClansOfCheckIn(
 
 export type CheckInActionState = { error?: string } | undefined;
 
-async function uploadPhoto(
-  formData: FormData,
-  fieldName: string,
-): Promise<{ url?: string; error?: string }> {
-  const photo = formData.get(fieldName);
-  if (!(photo instanceof File) || photo.size === 0) return {};
-  if (!photo.type.startsWith("image/")) return { error: "Photo must be an image." };
-  if (photo.size > 4 * 1024 * 1024) return { error: "Photo must be under 4MB." };
-
-  const blob = await put(`check-ins/${photo.name}`, photo, { access: "public", addRandomSuffix: true });
-  return { url: blob.url };
-}
+// Photos are uploaded client-direct to Vercel Blob (see src/app/api/check-ins/upload/route.ts) —
+// this Server Action only ever receives the resulting URLs, never raw file bytes. This check
+// isn't a security boundary (next/image's own remotePatterns allowlist already refuses to render
+// an unlisted host, so a forged value would at worst show a broken image), just a cheap sanity
+// filter against a hand-crafted form submission.
+const BLOB_URL_PATTERN = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;
 
 export async function logDailyCheckIn(
   _prevState: CheckInActionState,
@@ -80,9 +73,11 @@ export async function logDailyCheckIn(
 
   const status = String(formData.get("status") ?? "") as FoodStatus;
   const hasFoodStatus = ["yes", "no", "partial"].includes(status);
-  const { url: newPhotoUrl, error: photoError } = await uploadPhoto(formData, "photo");
-  if (photoError) return { error: photoError };
-  const hasPhoto = !!newPhotoUrl;
+  const photoUrls = formData
+    .getAll("photoUrls")
+    .filter((v): v is string => typeof v === "string" && BLOB_URL_PATTERN.test(v))
+    .slice(0, 3);
+  const hasPhoto = photoUrls.length > 0;
 
   const workedOut = formData.get("workedOut") === "on";
   const newlyLoggedTypes: CheckInType[] = [];
@@ -135,15 +130,12 @@ export async function logDailyCheckIn(
     const existingFood = await getTodaysCheckIn(user.id, "food");
     if (existingFood) {
       const existingValue = existingFood.value as FoodCheckInValue;
+      // No merge with the previous value's photos needed: the client always sends the complete
+      // desired set (existing photos it kept, minus any it removed, plus any newly uploaded), so
+      // this can just overwrite — which also means removing every photo now genuinely works.
       await db
         .update(checkIns)
-        .set({
-          value: {
-            status: hasFoodStatus ? status : existingValue.status,
-            note: foodNote,
-            photoUrl: newPhotoUrl ?? existingValue.photoUrl,
-          },
-        })
+        .set({ value: { status: hasFoodStatus ? status : existingValue.status, note: foodNote, photoUrls } })
         .where(eq(checkIns.id, existingFood.id));
     } else {
       const [row] = await db
@@ -151,7 +143,7 @@ export async function logDailyCheckIn(
         .values({
           userId: user.id,
           type: "food",
-          value: { status: hasFoodStatus ? status : undefined, note: foodNote, photoUrl: newPhotoUrl },
+          value: { status: hasFoodStatus ? status : undefined, note: foodNote, photoUrls },
           visibility: "public_to_clan",
         })
         .returning({ id: checkIns.id });

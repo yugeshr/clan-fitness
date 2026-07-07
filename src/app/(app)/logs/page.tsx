@@ -86,7 +86,7 @@ export default async function LogsPage() {
         dailyStepsTarget={dailyStepsTarget}
         currentFoodStatus={foodValue?.status}
         existingFoodNote={foodValue?.note}
-        existingFoodPhotoUrl={foodValue?.photoUrl}
+        existingPhotoUrls={foodValue?.photoUrls ?? []}
         hasLoggedToday={!!(gymCheckIn || stepsCheckIn || foodCheckIn)}
       />
     </div>
