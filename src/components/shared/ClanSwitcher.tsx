@@ -1,15 +1,15 @@
 "use client";
 
+import { ChevronDown, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ACTIVE_CLAN_STORAGE_KEY, resolveActiveClanId, type ClanOption } from "@/lib/active-clan";
-
-const CREATE_SENTINEL = "__create__";
-const JOIN_SENTINEL = "__join__";
 
 export function ClanSwitcher({ clans }: { clans: ClanOption[] }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
   // Starts null (matches server render) — only reads localStorage after mount, so the pathname
   // tier alone determines the value during SSR/hydration. See resolveActiveClanId's docs.
   const [storedClanId, setStoredClanId] = useState<string | null>(null);
@@ -22,27 +22,60 @@ export function ClanSwitcher({ clans }: { clans: ClanOption[] }) {
   if (clans.length === 0) return null;
 
   const currentClanId = resolveActiveClanId(pathname, clans, storedClanId);
+  const currentClan = clans.find((c) => c.id === currentClanId) ?? clans[0];
 
-  function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const value = event.target.value;
-    if (value === CREATE_SENTINEL) router.push("/clans/new");
-    else if (value === JOIN_SENTINEL) router.push("/clans/join");
-    else router.push(`/clans/${value}`);
+  function go(path: string) {
+    setOpen(false);
+    router.push(path);
   }
 
   return (
-    <select
-      className="max-w-[40vw] rounded-lg border border-surface-border bg-surface px-2 py-1 text-base text-foreground sm:max-w-none sm:text-sm"
-      value={currentClanId ?? clans[0].id}
-      onChange={handleChange}
-    >
-      {clans.map((clan) => (
-        <option key={clan.id} value={clan.id}>
-          {clan.name}
-        </option>
-      ))}
-      <option value={CREATE_SENTINEL}>+ Create a clan</option>
-      <option value={JOIN_SENTINEL}>+ Join with invite code</option>
-    </select>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-11 max-w-[40vw] items-center gap-1 text-sm font-semibold text-foreground sm:max-w-none"
+      >
+        <span className="truncate">{currentClan.name}</span>
+        <ChevronDown size={16} className="shrink-0 text-foreground-tertiary" />
+      </button>
+
+      <BottomSheet open={open} onClose={() => setOpen(false)} title="Switch clan">
+        <div className="flex flex-col gap-1">
+          {clans.map((clan) => (
+            <button
+              key={clan.id}
+              type="button"
+              onClick={() => go(`/clans/${clan.id}`)}
+              className={`flex min-h-11 items-center rounded-lg px-3 text-left text-sm transition-colors ${
+                clan.id === currentClanId
+                  ? "bg-accent/10 font-semibold text-accent"
+                  : "text-foreground hover:bg-background"
+              }`}
+            >
+              {clan.name}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-col gap-1 border-t border-surface-border pt-4">
+          <button
+            type="button"
+            onClick={() => go("/clans/new")}
+            className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-foreground-secondary hover:bg-background"
+          >
+            <Plus size={16} />
+            Create a clan
+          </button>
+          <button
+            type="button"
+            onClick={() => go("/clans/join")}
+            className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-foreground-secondary hover:bg-background"
+          >
+            <Plus size={16} />
+            Join with invite code
+          </button>
+        </div>
+      </BottomSheet>
+    </>
   );
 }
