@@ -4,4 +4,5 @@ export type FoodStatus = "yes" | "no" | "partial";
 
 export type GymCheckInValue = { note?: string; durationMinutes?: number };
 export type StepsCheckInValue = { count: number };
-export type FoodCheckInValue = { status: FoodStatus; note?: string; photoUrl?: string };
+// status is optional: a photo can be logged on its own, independent of answering the nutrition question.
+export type FoodCheckInValue = { status?: FoodStatus; note?: string; photoUrl?: string };

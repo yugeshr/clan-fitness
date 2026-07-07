@@ -117,34 +117,36 @@ export function DailyLogForm({
           maxLength={200}
           defaultValue={existingFoodNote}
         />
-        <div className="flex flex-col gap-2">
-          <label htmlFor="foodPhoto" className="text-xs text-foreground-tertiary">
-            {existingFoodPhotoUrl ? "Replace photo" : "Optional photo"}
-          </label>
-          {existingFoodPhotoUrl && (
-            <div className="flex items-center gap-2">
-              <Image
-                src={existingFoodPhotoUrl}
-                alt="Current food photo"
-                width={56}
-                height={56}
-                className="h-14 w-14 rounded-lg object-cover"
-              />
-              <p className="text-xs text-foreground-tertiary">
-                Current photo — pick a new file below to replace it.
-              </p>
-            </div>
-          )}
-          <input
-            id="foodPhoto"
-            type="file"
-            name="foodPhoto"
-            accept="image/*"
-            onChange={handlePhotoChange}
-            className="text-sm text-foreground-secondary file:mr-3 file:rounded-none file:border file:border-surface-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
-          />
-          {compressing && <p className="text-xs text-foreground-muted">Compressing photo...</p>}
-        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="font-semibold text-foreground">Photo</h2>
+        <label htmlFor="photo" className="text-xs text-foreground-tertiary">
+          {existingFoodPhotoUrl ? "Replace photo" : "Optional photo — saves on its own, no other answer needed"}
+        </label>
+        {existingFoodPhotoUrl && (
+          <div className="flex items-center gap-2">
+            <Image
+              src={existingFoodPhotoUrl}
+              alt="Current photo"
+              width={56}
+              height={56}
+              className="h-14 w-14 rounded-lg object-cover"
+            />
+            <p className="text-xs text-foreground-tertiary">
+              Current photo — pick a new file below to replace it.
+            </p>
+          </div>
+        )}
+        <input
+          id="photo"
+          type="file"
+          name="photo"
+          accept="image/*"
+          onChange={handlePhotoChange}
+          className="text-sm text-foreground-secondary file:mr-3 file:rounded-none file:border file:border-surface-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
+        />
+        {compressing && <p className="text-xs text-foreground-muted">Compressing photo...</p>}
       </div>
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
