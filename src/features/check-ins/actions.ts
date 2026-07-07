@@ -6,35 +6,33 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/db";
 import { checkIns } from "@/db/schema";
-import { getClanMembers, getUserClans } from "@/features/clans/queries";
+import { getClanMembersForClanIds, getUserClans } from "@/features/clans/queries";
 import { notifyUser } from "@/features/notifications/send";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { getTodaysCheckIn } from "./queries";
 import type { CheckInType, FoodCheckInValue, FoodStatus } from "./types";
 
-async function notifyClanOfCheckIn(clanId: string, actorId: string, actorName: string, types: CheckInType[]) {
+/** Notifies every member across every clan the actor is currently in, deduped so someone sharing 2+ clans with the actor isn't notified twice. */
+async function notifyClansOfCheckIn(actorId: string, actorName: string, types: CheckInType[]) {
   if (types.length === 0) return;
-  const members = await getClanMembers(clanId);
+
+  const actorClans = await getUserClans(actorId);
+  const clanIds = actorClans.map((c) => c.clan.id);
+  if (clanIds.length === 0) return;
+
+  const members = await getClanMembersForClanIds(clanIds);
+  const recipientIds = new Set(members.map((m) => m.user.id).filter((id) => id !== actorId));
+
   const label = types.join(", ");
+  const url = `/clans/${clanIds[0]}`;
   await Promise.all(
-    members
-      .filter((m) => m.user.id !== actorId)
-      .map((m) =>
-        notifyUser(m.user.id, {
-          title: `${actorName} checked in`,
-          body: `Logged: ${label}`,
-          url: `/clans/${clanId}`,
-        }),
-      ),
+    [...recipientIds].map((userId) =>
+      notifyUser(userId, { title: `${actorName} checked in`, body: `Logged: ${label}`, url }),
+    ),
   );
 }
 
 export type CheckInActionState = { error?: string } | undefined;
-
-async function getPrimaryClanId(userId: string) {
-  const memberships = await getUserClans(userId);
-  return memberships[0]?.clan.id ?? null;
-}
 
 async function uploadPhoto(
   formData: FormData,
@@ -66,7 +64,6 @@ export async function logDailyCheckIn(
   const hasFoodStatus = ["yes", "no", "partial"].includes(status);
 
   const workedOut = formData.get("workedOut") === "on";
-  const clanId = await getPrimaryClanId(user.id);
   const newlyLoggedTypes: CheckInType[] = [];
 
   const existingGym = await getTodaysCheckIn(user.id, "gym");
@@ -77,7 +74,6 @@ export async function logDailyCheckIn(
     } else {
       await db.insert(checkIns).values({
         userId: user.id,
-        clanId,
         type: "gym",
         value: { note: gymNote },
         visibility: "public_to_clan",
@@ -93,7 +89,6 @@ export async function logDailyCheckIn(
     } else {
       await db.insert(checkIns).values({
         userId: user.id,
-        clanId,
         type: "steps",
         value: { count },
         visibility: "public_to_clan",
@@ -117,7 +112,6 @@ export async function logDailyCheckIn(
     } else {
       await db.insert(checkIns).values({
         userId: user.id,
-        clanId,
         type: "food",
         value: { status, note: foodNote, photoUrl: newFoodPhotoUrl },
         visibility: "public_to_clan",
@@ -126,7 +120,7 @@ export async function logDailyCheckIn(
     }
   }
 
-  if (clanId) after(() => notifyClanOfCheckIn(clanId, user.id, user.name, newlyLoggedTypes));
+  after(() => notifyClansOfCheckIn(user.id, user.name, newlyLoggedTypes));
 
   revalidatePath("/logs");
 }

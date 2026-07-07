@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/db";
 import { checkIns, comments } from "@/db/schema";
-import { getClanMembers } from "@/features/clans/queries";
+import { getClanMembersForClanIds, getUserClans, getUserClansAsOf } from "@/features/clans/queries";
 import { notifyUser } from "@/features/notifications/send";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { extractMentionedUserIds, mentionsToPlainText } from "./mentions";
@@ -30,17 +30,25 @@ export async function addComment(
   }
 
   const [checkIn] = await db
-    .select({ clanId: checkIns.clanId, userId: checkIns.userId })
+    .select({ userId: checkIns.userId, createdAt: checkIns.createdAt })
     .from(checkIns)
     .where(eq(checkIns.id, checkInId));
   if (!checkIn) return { error: "Check-in not found." };
 
   const [row] = await db.insert(comments).values({ checkInId, userId: user.id, text: trimmed }).returning();
 
-  if (checkIn.clanId) revalidatePath(`/clans/${checkIn.clanId}`);
+  // Clans this check-in is visible in (owner's memberships as of when it was logged).
+  const visibleClans = await getUserClansAsOf(checkIn.userId, checkIn.createdAt);
+  const clanIds = visibleClans.map((c) => c.clan.id);
+  for (const clanId of clanIds) revalidatePath(`/clans/${clanId}`);
 
-  // Only notify members of this clan, even if the raw text claims to mention someone else's user ID.
-  const members = checkIn.clanId ? await getClanMembers(checkIn.clanId) : [];
+  // Mention targets must be in a clan BOTH the commenter and the check-in owner share — the owner
+  // might be visible in more clans than the commenter is actually in, and that gap shouldn't let
+  // someone tag a stranger they have no clan in common with.
+  const commenterClans = await getUserClans(user.id);
+  const commenterClanIds = new Set(commenterClans.map((c) => c.clan.id));
+  const sharedClanIds = clanIds.filter((id) => commenterClanIds.has(id));
+  const members = await getClanMembersForClanIds(sharedClanIds);
   const memberIds = new Set(members.map((m) => m.user.id));
   const mentionedIds = new Set(extractMentionedUserIds(trimmed).filter((id) => memberIds.has(id) && id !== user.id));
 
@@ -53,7 +61,7 @@ export async function addComment(
   }
 
   if (recipients.size > 0) {
-    const url = checkIn.clanId ? `/clans/${checkIn.clanId}` : "/logs";
+    const url = clanIds[0] ? `/clans/${clanIds[0]}` : "/logs";
     after(() => Promise.all([...recipients].map(([userId, payload]) => notifyUser(userId, { ...payload, url }))));
   }
 
@@ -80,11 +88,17 @@ export async function deleteComment(commentId: string): Promise<{ error?: string
   if (!existing) return { error: "Comment not found." };
   if (existing.userId !== user.id) return { error: "You can only delete your own comments." };
 
-  const [checkIn] = await db.select({ clanId: checkIns.clanId }).from(checkIns).where(eq(checkIns.id, existing.checkInId));
+  const [checkIn] = await db
+    .select({ userId: checkIns.userId, createdAt: checkIns.createdAt })
+    .from(checkIns)
+    .where(eq(checkIns.id, existing.checkInId));
 
   await db.delete(comments).where(eq(comments.id, commentId));
 
-  if (checkIn?.clanId) revalidatePath(`/clans/${checkIn.clanId}`);
+  if (checkIn) {
+    const visibleClans = await getUserClansAsOf(checkIn.userId, checkIn.createdAt);
+    for (const clan of visibleClans) revalidatePath(`/clans/${clan.clan.id}`);
+  }
 
   return {};
 }
