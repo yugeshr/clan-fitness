@@ -14,6 +14,10 @@ import { getGoalsForUsers } from "@/features/goals";
 
 const DEFAULT_WEEKLY_GYM_TARGET = 4;
 const DEFAULT_DAILY_STEPS_TARGET = 8000;
+const STEP_WEIGHT = 0.4;
+const GYM_WEIGHT = 0.4;
+const STREAK_WEIGHT = 0.2;
+const STREAK_CAP_DAYS = 7;
 
 export default async function ManageClanPage({ params }: { params: Promise<{ clanId: string }> }) {
   const { clanId } = await params;
@@ -38,9 +42,11 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
   ]);
   const isAdmin = membership.role === "admin";
 
-  // Position is ranked by combined progress toward each member's own gym + steps goals (each
-  // capped at 100%) rather than raw counts, since a raw step count would otherwise swamp a gym
-  // day count in the same score.
+  // Position is a weighted composite of three 0-100 scores, each capped at 100 so blowing past a
+  // goal can't be used to coast on the others: steps % of personal goal (40%), gym % of personal
+  // goal (40%), and streak normalized against a 7-day cap (20%). Streak is folded into the score
+  // itself rather than left as a pure tiebreaker, since a long streak reflects real consistency
+  // that neither of the other two metrics captures on its own.
   const leaderboard = members
     .map(({ user }) => {
       const weeklyCount = weeklyCounts.get(user.id) ?? 0;
@@ -48,8 +54,13 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
       const weeklySteps = weeklyStepsTotals.get(user.id) ?? 0;
       const weeklyStepsTarget = (stepsGoals.get(user.id) ?? DEFAULT_DAILY_STEPS_TARGET) * 7;
       const streak = streaks.get(user.id) ?? 0;
-      const score = Math.min(weeklyCount / weeklyTarget, 1) + Math.min(weeklySteps / weeklyStepsTarget, 1);
-      return { user, weeklyCount, weeklyTarget, weeklySteps, weeklyStepsTarget, streak, score };
+
+      const stepPct = Math.min(weeklySteps / weeklyStepsTarget, 1) * 100;
+      const gymPct = Math.min(weeklyCount / weeklyTarget, 1) * 100;
+      const streakPct = Math.min(streak / STREAK_CAP_DAYS, 1) * 100;
+      const score = STEP_WEIGHT * stepPct + GYM_WEIGHT * gymPct + STREAK_WEIGHT * streakPct;
+
+      return { user, weeklyCount, weeklyTarget, weeklySteps, weeklyStepsTarget, streak, stepPct, gymPct, score };
     })
     .sort((a, b) => b.score - a.score || b.streak - a.streak || a.user.name.localeCompare(b.user.name));
 

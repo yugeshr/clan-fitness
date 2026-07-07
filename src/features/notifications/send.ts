@@ -3,8 +3,9 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import webpush from "web-push";
 import { db } from "@/db";
-import { pushSubscriptions } from "@/db/schema";
+import { pushSubscriptions, users } from "@/db/schema";
 import { getPushSubscriptionsForUser } from "./queries";
+import { sendEmailNotification } from "./send-email";
 import type { NotificationPayload } from "./types";
 
 let vapidConfigured = false;
@@ -28,7 +29,7 @@ function ensureVapidConfigured(): boolean {
 }
 
 /** Sends a push notification to every device the user has subscribed on. Silently drops subscriptions the push service reports as gone. */
-export async function notifyUser(userId: string, payload: NotificationPayload) {
+async function sendPushNotifications(userId: string, payload: NotificationPayload) {
   if (!ensureVapidConfigured()) {
     console.warn("Push notifications are not configured (missing VAPID env vars); skipping.");
     return;
@@ -57,4 +58,18 @@ export async function notifyUser(userId: string, payload: NotificationPayload) {
       }
     }),
   );
+}
+
+/**
+ * Notifies a user through every channel available to them: push (if they have any subscribed
+ * devices) and email (if they have an address on file). Both run rather than one replacing the
+ * other, since push has had ongoing delivery issues — email is a backup channel, not a swap.
+ */
+export async function notifyUser(userId: string, payload: NotificationPayload) {
+  const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+
+  await Promise.all([
+    sendPushNotifications(userId, payload),
+    user?.email ? sendEmailNotification(user.email, payload) : Promise.resolve(),
+  ]);
 }
