@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import { PhotoCarousel } from "@/components/ui/photo-carousel";
 import type { FeedRow } from "@/features/check-ins";
+import { getFoodPhotoUrls } from "@/features/check-ins/types";
 import type { FoodCheckInValue } from "@/features/check-ins/types";
 import { CommentSheet } from "@/features/comments/components/CommentSheet";
 import type { ClanMemberOption } from "@/features/comments/components/CommentThread";
@@ -115,7 +116,7 @@ export function FeedList({
                       {group.entries.map((checkIn) => {
                         const photoUrls =
                           checkIn.type === "food"
-                            ? (checkIn.value as FoodCheckInValue).photoUrls ?? []
+                            ? getFoodPhotoUrls(checkIn.value as FoodCheckInValue)
                             : [];
                         return (
                           <div key={checkIn.id} className="flex flex-col gap-2">
