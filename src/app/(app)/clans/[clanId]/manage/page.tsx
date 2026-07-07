@@ -18,8 +18,9 @@ import { getGoalsForUsers } from "@/features/goals";
 
 const DEFAULT_WEEKLY_GYM_TARGET = 4;
 const DEFAULT_DAILY_STEPS_TARGET = 8000;
-const STEP_WEIGHT = 0.8;
-const STREAK_WEIGHT = 0.2;
+const STEP_WEIGHT = 0.5;
+const STREAK_WEIGHT = 0.25;
+const GYM_WEIGHT = 0.25;
 const STREAK_CAP_DAYS = 7;
 
 export default async function ManageClanPage({ params }: { params: Promise<{ clanId: string }> }) {
@@ -43,10 +44,9 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
   ]);
   const isAdmin = membership.role === "admin";
 
-  // Gym turnout is too low across most clans for a gym-based score to be a fair ranking signal —
-  // it's shown on the card for context, but position is steps-only: % of weekly steps goal (80%)
-  // plus a streak of days the steps *goal* was actually hit, capped at 7 days (20%), not just days
-  // with any steps logged at all.
+  // Gym turnout is low across most clans, so gym only gets a minority weight rather than being
+  // dropped outright: % of weekly steps goal (50%), a streak of days the steps *goal* was
+  // actually hit rather than just logged, capped at 7 days (25%), and % of weekly gym goal (25%).
   const dailyStepTargets = new Map(
     memberIds.map((id) => [id, stepsGoals.get(id) ?? DEFAULT_DAILY_STEPS_TARGET]),
   );
@@ -63,7 +63,7 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
       const stepPct = Math.min(weeklySteps / weeklyStepsTarget, 1) * 100;
       const gymPct = Math.min(weeklyCount / weeklyTarget, 1) * 100;
       const streakPct = Math.min(streak / STREAK_CAP_DAYS, 1) * 100;
-      const score = STEP_WEIGHT * stepPct + STREAK_WEIGHT * streakPct;
+      const score = STEP_WEIGHT * stepPct + STREAK_WEIGHT * streakPct + GYM_WEIGHT * gymPct;
 
       return { user, weeklyCount, weeklyTarget, weeklySteps, weeklyStepsTarget, streak, stepPct, gymPct, score };
     })
