@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.clanfitness.twa",
+      "sha256_cert_fingerprints": ["32:69:8C:AD:D1:22:60:4F:B4:9D:7A:92:F1:1D:48:60:10:51:93:F8:A5:D7:86:CA:8C:72:66:E8:9C:D5:1F:31"]
+    }
+  }
+]

@@ -10,6 +10,9 @@ const isPublicRoute = createRouteMatcher([
   "/icon-512",
   "/icon-512-maskable",
   "/apple-icon",
+  // Google's Digital Asset Links verifier fetches this unauthenticated to confirm the TWA
+  // (Play Store wrapper) owns this domain — a redirect to sign-in here fails TWA verification.
+  "/.well-known/assetlinks.json",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
