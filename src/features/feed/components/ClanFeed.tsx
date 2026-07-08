@@ -42,8 +42,8 @@ export async function ClanFeed({
 
   const checkInIds = rows.map((row) => row.checkIn.id);
   const [reactions, comments, members] = await Promise.all([
-    userId ? getReactionsForCheckIns(checkInIds, userId) : Promise.resolve({}),
-    getCommentsForCheckIns(checkInIds),
+    userId ? getReactionsForCheckIns(checkInIds, clanId, userId) : Promise.resolve({}),
+    getCommentsForCheckIns(checkInIds, clanId),
     membersPromise,
   ]);
   const clanMembers = members.map((m) => ({ id: m.user.id, name: m.user.name, avatarUrl: m.user.avatarUrl }));

@@ -135,6 +135,7 @@ export function FeedList({
                     <div className="flex items-center gap-2">
                       <ReactionBar
                         checkInId={cardId}
+                        clanId={clanId}
                         summary={reactions[cardId]}
                         onSummaryChange={(summary) =>
                           setReactions((prev) => ({ ...prev, [cardId]: summary }))
@@ -142,6 +143,7 @@ export function FeedList({
                       />
                       <CommentSheet
                         checkInId={cardId}
+                        clanId={clanId}
                         comments={comments[cardId] ?? []}
                         currentUserId={currentUserId}
                         clanMembers={clanMembers}

@@ -8,12 +8,14 @@ import type { CommentWithUser } from "../queries";
 
 export function CommentSheet({
   checkInId,
+  clanId,
   comments,
   currentUserId,
   clanMembers,
   onCommentsChange,
 }: {
   checkInId: string;
+  clanId: string;
   comments: CommentWithUser[];
   currentUserId?: string | null;
   clanMembers?: ClanMemberOption[];
@@ -36,6 +38,7 @@ export function CommentSheet({
       <BottomSheet open={open} onClose={() => setOpen(false)} title="Comments">
         <CommentThread
           checkInId={checkInId}
+          clanId={clanId}
           comments={comments}
           currentUserId={currentUserId}
           clanMembers={clanMembers}
