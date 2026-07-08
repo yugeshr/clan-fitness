@@ -14,10 +14,12 @@ import type { CheckInType, FoodCheckInValue, FoodStatus } from "./types";
 /**
  * Notifies every member across every clan the actor is currently in, deduped so someone sharing
  * 2+ clans with the actor isn't notified twice. `anchorCheckInId` lets the notification deep-link
- * straight to that day's card instead of just the clan feed — it must be the *last*-inserted
- * check-in of this submission, since the feed groups a user's same-day check-ins into one card
- * keyed by its newest entry (see groupByUserAndDay), and that's the id ReactionBar/CommentSheet
- * are bound to.
+ * straight to that day's card instead of just the clan feed — it must be the *oldest* of today's
+ * check-ins (gym/steps/food), since the feed groups a user's same-day check-ins into one card
+ * keyed by its oldest entry (see groupByUserAndDay) — that id is stable for the rest of the day
+ * regardless of what gets added later, which is also what ReactionBar/CommentSheet are bound to.
+ * Using the newest instead (as this used to) meant adding a new check-in type later the same day
+ * silently orphaned any reactions/comments already made on that day's card.
  */
 async function notifyClansOfCheckIn(
   actorId: string,
@@ -81,13 +83,17 @@ export async function logDailyCheckIn(
 
   const workedOut = formData.get("workedOut") === "on";
   const newlyLoggedTypes: CheckInType[] = [];
-  let anchorCheckInId: string | undefined;
+  // Every one of today's check-ins for this user (pre-existing or just written), so the
+  // notification anchor below can be computed as the oldest of them — see the comment on
+  // notifyClansOfCheckIn for why it must be oldest, not whichever this submission touched last.
+  const todaysCheckIns: { id: string; createdAt: Date }[] = [];
 
   const existingGym = await getTodaysCheckIn(user.id, "gym");
   if (workedOut || existingGym) {
     const gymNote = String(formData.get("gymNote") ?? "").trim() || undefined;
     if (existingGym) {
       await db.update(checkIns).set({ value: { note: gymNote } }).where(eq(checkIns.id, existingGym.id));
+      todaysCheckIns.push({ id: existingGym.id, createdAt: existingGym.createdAt });
     } else {
       const [row] = await db
         .insert(checkIns)
@@ -97,9 +103,9 @@ export async function logDailyCheckIn(
           value: { note: gymNote },
           visibility: "public_to_clan",
         })
-        .returning({ id: checkIns.id });
+        .returning({ id: checkIns.id, createdAt: checkIns.createdAt });
       newlyLoggedTypes.push("gym");
-      anchorCheckInId = row.id;
+      todaysCheckIns.push(row);
     }
   }
 
@@ -107,6 +113,7 @@ export async function logDailyCheckIn(
     const existingSteps = await getTodaysCheckIn(user.id, "steps");
     if (existingSteps) {
       await db.update(checkIns).set({ value: { count } }).where(eq(checkIns.id, existingSteps.id));
+      todaysCheckIns.push({ id: existingSteps.id, createdAt: existingSteps.createdAt });
     } else {
       const [row] = await db
         .insert(checkIns)
@@ -116,9 +123,9 @@ export async function logDailyCheckIn(
           value: { count },
           visibility: "public_to_clan",
         })
-        .returning({ id: checkIns.id });
+        .returning({ id: checkIns.id, createdAt: checkIns.createdAt });
       newlyLoggedTypes.push("steps");
-      anchorCheckInId = row.id;
+      todaysCheckIns.push(row);
     }
   }
 
@@ -137,6 +144,7 @@ export async function logDailyCheckIn(
         .update(checkIns)
         .set({ value: { status: hasFoodStatus ? status : existingValue.status, note: foodNote, photoUrls } })
         .where(eq(checkIns.id, existingFood.id));
+      todaysCheckIns.push({ id: existingFood.id, createdAt: existingFood.createdAt });
     } else {
       const [row] = await db
         .insert(checkIns)
@@ -146,11 +154,16 @@ export async function logDailyCheckIn(
           value: { status: hasFoodStatus ? status : undefined, note: foodNote, photoUrls },
           visibility: "public_to_clan",
         })
-        .returning({ id: checkIns.id });
+        .returning({ id: checkIns.id, createdAt: checkIns.createdAt });
       newlyLoggedTypes.push("food");
-      anchorCheckInId = row.id;
+      todaysCheckIns.push(row);
     }
   }
+
+  const anchorCheckInId = todaysCheckIns.reduce(
+    (oldest, c) => (!oldest || c.createdAt < oldest.createdAt ? c : oldest),
+    null as { id: string; createdAt: Date } | null,
+  )?.id;
 
   after(() => notifyClansOfCheckIn(user.id, user.name, newlyLoggedTypes, anchorCheckInId));
 
