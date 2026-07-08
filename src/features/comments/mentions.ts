@@ -31,3 +31,25 @@ export function parseCommentSegments(text: string): CommentSegment[] {
 
   return segments;
 }
+
+export type ResolvedMention = { id: string; name: string; start: number; end: number };
+
+/**
+ * Inverse of the above: rebuilds `@[Name](id)` markup from clean display text (what the compose
+ * input shows and edits — never the raw markup itself, so the user never sees a mention's id)
+ * plus the ranges within it that are resolved mentions. `start`/`end` bound just the `@Name`
+ * substring, so any text before/after (including the trailing space after a mention) is untouched.
+ */
+export function buildMentionMarkup(displayText: string, mentions: ResolvedMention[]): string {
+  if (mentions.length === 0) return displayText;
+  const sorted = [...mentions].sort((a, b) => a.start - b.start);
+  let result = "";
+  let cursor = 0;
+  for (const mention of sorted) {
+    result += displayText.slice(cursor, mention.start);
+    result += `@[${mention.name}](${mention.id})`;
+    cursor = mention.end;
+  }
+  result += displayText.slice(cursor);
+  return result;
+}
