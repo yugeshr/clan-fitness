@@ -1,10 +1,11 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { reactions, users } from "@/db/schema";
 import type { ReactionSummary } from "./types";
 
 export async function getReactionsForCheckIns(
   checkInIds: string[],
+  clanId: string,
   currentUserId: string,
 ): Promise<Record<string, ReactionSummary>> {
   const summaries: Record<string, ReactionSummary> = {};
@@ -20,7 +21,7 @@ export async function getReactionsForCheckIns(
     })
     .from(reactions)
     .innerJoin(users, eq(reactions.userId, users.id))
-    .where(inArray(reactions.checkInId, checkInIds));
+    .where(and(inArray(reactions.checkInId, checkInIds), eq(reactions.clanId, clanId)));
 
   for (const row of rows) {
     const summary = (summaries[row.checkInId] ??= {});

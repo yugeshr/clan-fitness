@@ -118,13 +118,19 @@ export const reactions = pgTable(
     checkInId: uuid("check_in_id")
       .notNull()
       .references(() => checkIns.id),
+    // The clan this reaction happened in — reactions are clan-scoped even though the underlying
+    // check-in is visible across all of the owner's clans, so the same user can react to the same
+    // check-in independently once per clan they share with the owner.
+    clanId: uuid("clan_id")
+      .notNull()
+      .references(() => clans.id),
     userId: text("user_id")
       .notNull()
       .references(() => users.id),
     emoji: text("emoji").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("reactions_check_in_user_emoji_idx").on(t.checkInId, t.userId, t.emoji)],
+  (t) => [uniqueIndex("reactions_check_in_clan_user_emoji_idx").on(t.checkInId, t.clanId, t.userId, t.emoji)],
 );
 
 export const comments = pgTable(
@@ -134,13 +140,17 @@ export const comments = pgTable(
     checkInId: uuid("check_in_id")
       .notNull()
       .references(() => checkIns.id),
+    // Same clan-scoping rationale as reactions.clanId above.
+    clanId: uuid("clan_id")
+      .notNull()
+      .references(() => clans.id),
     userId: text("user_id")
       .notNull()
       .references(() => users.id),
     text: text("text").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("comments_check_in_id_idx").on(t.checkInId)],
+  (t) => [index("comments_check_in_id_clan_id_idx").on(t.checkInId, t.clanId)],
 );
 
 export const pushSubscriptions = pgTable(

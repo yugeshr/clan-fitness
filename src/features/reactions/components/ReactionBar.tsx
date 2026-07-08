@@ -11,10 +11,12 @@ const LONG_PRESS_MS = 450;
 
 export function ReactionBar({
   checkInId,
+  clanId,
   summary,
   onSummaryChange,
 }: {
   checkInId: string;
+  clanId: string;
   summary?: ReactionSummary;
   onSummaryChange: (next: ReactionSummary) => void;
 }) {
@@ -41,7 +43,7 @@ export function ReactionBar({
   function handleClick(emoji: string) {
     if (longPressFired.current) return;
     startTransition(async () => {
-      const result = await toggleReaction(checkInId, emoji);
+      const result = await toggleReaction(checkInId, clanId, emoji);
       if ("summary" in result) onSummaryChange(result.summary);
     });
   }

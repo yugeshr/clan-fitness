@@ -20,8 +20,8 @@ export async function loadMoreFeed(clanId: string, beforeIso: string) {
 
   const checkInIds = rows.map((row) => row.checkIn.id);
   const [reactions, comments] = await Promise.all([
-    getReactionsForCheckIns(checkInIds, userId),
-    getCommentsForCheckIns(checkInIds),
+    getReactionsForCheckIns(checkInIds, clanId, userId),
+    getCommentsForCheckIns(checkInIds, clanId),
   ]);
 
   return { rows, reactions, comments, hasMore: rows.length === FEED_PAGE_SIZE };

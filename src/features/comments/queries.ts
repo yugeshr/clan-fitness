@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { comments, users } from "@/db/schema";
 
@@ -11,7 +11,10 @@ export type CommentWithUser = {
   user: { id: string; name: string; avatarUrl: string | null };
 };
 
-export async function getCommentsForCheckIns(checkInIds: string[]): Promise<Record<string, CommentWithUser[]>> {
+export async function getCommentsForCheckIns(
+  checkInIds: string[],
+  clanId: string,
+): Promise<Record<string, CommentWithUser[]>> {
   const grouped: Record<string, CommentWithUser[]> = {};
   if (checkInIds.length === 0) return grouped;
 
@@ -19,7 +22,7 @@ export async function getCommentsForCheckIns(checkInIds: string[]): Promise<Reco
     .select({ comment: comments, user: users })
     .from(comments)
     .innerJoin(users, eq(comments.userId, users.id))
-    .where(inArray(comments.checkInId, checkInIds))
+    .where(and(inArray(comments.checkInId, checkInIds), eq(comments.clanId, clanId)))
     .orderBy(asc(comments.createdAt));
 
   for (const { comment, user } of rows) {

@@ -14,12 +14,14 @@ const MAX_MENTION_SUGGESTIONS = 5;
 
 export function CommentThread({
   checkInId,
+  clanId,
   comments,
   currentUserId,
   clanMembers = [],
   onCommentsChange,
 }: {
   checkInId: string;
+  clanId: string;
   comments: CommentWithUser[];
   currentUserId?: string | null;
   clanMembers?: ClanMemberOption[];
@@ -92,7 +94,7 @@ export function CommentThread({
     if (!value) return;
 
     startTransition(async () => {
-      const result = await addComment(checkInId, value);
+      const result = await addComment(checkInId, clanId, value);
       if ("error" in result) {
         setError(result.error);
         return;
