@@ -86,7 +86,11 @@ export function FeedList({
           </h3>
           <ul className="flex flex-col gap-3">
             {section.cards.map((group) => {
-              const cardId = group.entries[0].id;
+              // The oldest entry, not the newest (group.entries[0]) — it's the only one of the
+              // group guaranteed to stay the group's identity for the rest of the day. Keying on
+              // the newest meant adding a new check-in type later that day silently orphaned any
+              // reactions/comments already made against the day's card.
+              const cardId = group.entries[group.entries.length - 1].id;
               const isHighlighted = highlighted && cardId === highlightCheckInId;
               return (
                 <li
