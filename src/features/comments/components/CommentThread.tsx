@@ -3,14 +3,39 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import { addComment, deleteComment } from "../actions";
-import { parseCommentSegments } from "../mentions";
+import { buildMentionMarkup, parseCommentSegments } from "../mentions";
+import type { ResolvedMention } from "../mentions";
 import type { CommentWithUser } from "../queries";
-import { COMMENT_MAX_RAW_LENGTH } from "../types";
+import { COMMENT_MAX_LENGTH } from "../types";
 
 export type ClanMemberOption = { id: string; name: string; avatarUrl: string | null };
 
 const MENTION_TRIGGER = /(?:^|\s)@([^\s@]*)$/;
 const MAX_MENTION_SUGGESTIONS = 5;
+
+/**
+ * Finds the single contiguous region where `newText` differs from `oldText` — always exactly one
+ * such region for a native input's onChange, since a single keystroke/paste/cut can only edit one
+ * spot. Used to shift or drop tracked mention ranges (see ResolvedMention) as the surrounding text
+ * is edited, without re-deriving them from scratch on every keystroke.
+ */
+function diffRange(oldText: string, newText: string) {
+  let prefixLen = 0;
+  while (prefixLen < oldText.length && prefixLen < newText.length && oldText[prefixLen] === newText[prefixLen]) {
+    prefixLen++;
+  }
+  let suffixLen = 0;
+  const maxSuffix = Math.min(oldText.length, newText.length) - prefixLen;
+  while (
+    suffixLen < maxSuffix &&
+    oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]
+  ) {
+    suffixLen++;
+  }
+  const oldEditEnd = oldText.length - suffixLen;
+  const newEditEnd = newText.length - suffixLen;
+  return { editStart: prefixLen, oldEditEnd, delta: newEditEnd - oldEditEnd };
+}
 
 export function CommentThread({
   checkInId,
@@ -33,6 +58,11 @@ export function CommentThread({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  // Resolved mentions currently active in `text`, by character range — `text` itself is always
+  // the clean "@Name" display form the user sees and edits, never the `@[Name](id)` markup, so
+  // the id is reconstructed from this only at submit time (see buildMentionMarkup). Doesn't need
+  // to be state: nothing renders differently based on it.
+  const mentionsRef = useRef<ResolvedMention[]>([]);
 
   const mentionMatches = useMemo(() => {
     if (mentionQuery === null) return [];
@@ -44,6 +74,16 @@ export function CommentThread({
 
   function handleTextChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value = event.target.value;
+    const { editStart, oldEditEnd, delta } = diffRange(text, value);
+
+    mentionsRef.current = mentionsRef.current.flatMap((mention) => {
+      if (mention.end <= editStart) return [mention]; // entirely before the edit — unaffected
+      if (oldEditEnd <= mention.start) {
+        return [{ ...mention, start: mention.start + delta, end: mention.end + delta }]; // shift
+      }
+      return []; // edit overlapped this mention's text — it's no longer a mention
+    });
+
     setText(value);
 
     const caret = event.target.selectionStart ?? value.length;
@@ -59,8 +99,17 @@ export function CommentThread({
     if (!match) return;
 
     const mentionStart = caret - match[1].length - 1;
-    const mentionText = `@[${member.name}](${member.id}) `;
+    const mentionLabel = `@${member.name}`;
+    const mentionText = `${mentionLabel} `;
     const next = text.slice(0, mentionStart) + mentionText + text.slice(caret);
+    const delta = mentionText.length - (caret - mentionStart);
+
+    mentionsRef.current = [
+      ...mentionsRef.current.map((mention) =>
+        mention.start >= caret ? { ...mention, start: mention.start + delta, end: mention.end + delta } : mention,
+      ),
+      { id: member.id, name: member.name, start: mentionStart, end: mentionStart + mentionLabel.length },
+    ];
     setText(next);
     setMentionQuery(null);
 
@@ -90,17 +139,18 @@ export function CommentThread({
 
   function handleAdd(event: React.FormEvent) {
     event.preventDefault();
-    const value = text.trim();
-    if (!value) return;
+    if (!text.trim()) return;
+    const rawValue = buildMentionMarkup(text, mentionsRef.current);
 
     startTransition(async () => {
-      const result = await addComment(checkInId, clanId, value);
+      const result = await addComment(checkInId, clanId, rawValue);
       if ("error" in result) {
         setError(result.error);
         return;
       }
       setError(undefined);
       setText("");
+      mentionsRef.current = [];
       onCommentsChange([...comments, result.comment]);
     });
   }
@@ -178,7 +228,7 @@ export function CommentThread({
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onBlur={() => setMentionQuery(null)}
-            maxLength={COMMENT_MAX_RAW_LENGTH}
+            maxLength={COMMENT_MAX_LENGTH}
             placeholder="Add a comment... (@ to mention)"
             className="w-full min-w-0 rounded-lg border border-surface-border bg-surface px-3 py-2 text-base text-foreground placeholder:text-foreground-muted sm:text-sm"
           />
