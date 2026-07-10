@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isIOSDevice, isStandaloneDisplay } from "@/lib/pwa";
 import { subscribeToPush, unsubscribeFromPush } from "./actions";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -14,11 +15,7 @@ export type PushSupport = "checking" | "supported" | "unsupported" | "ios-needs-
 
 /** iOS Safari only exposes the Push API to web apps installed to the Home Screen (standalone display mode). */
 function isIosNotInstalled() {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);
-  const isStandalone =
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return isIOS && !isStandalone;
+  return isIOSDevice() && !isStandaloneDisplay();
 }
 
 /** Shared client-side push subscription state, used by both the manual opt-in UI and the auto-prompt on app load. */
