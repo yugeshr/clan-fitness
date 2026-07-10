@@ -51,23 +51,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Plain vh first, svh second (same property twice, on purpose) — browsers that don't understand
-   100svh drop that whole declaration as invalid and keep the vh value above it, so very old
-   browsers still get a real, functional height instead of collapsing.
-   Deliberately svh, not dvh: svh is the "small viewport height" — the guaranteed-visible height
-   once the browser's own UI chrome (address bar, etc.) is at its largest/most-expanded — whereas
-   dvh live-tracks whatever state that chrome currently happens to be in. On Android, dvh (and
-   plain vh, which has the same issue historically) can report a taller-than-actually-visible
-   height on first paint before the browser's chrome has settled, which is normally harmless
-   because scrolling the page corrects it — but this shell disables document scroll entirely (see
-   AppLayout), so there's no later correction. Anything sized off that overestimate, including
-   BottomNav (the last flex child in the shell), ends up positioned below the real visible screen
-   and looks like it's missing. svh is a fixed, conservative value that's never too tall. */
-.app-shell-height {
-  height: 100vh;
-  height: 100svh;
-}
-
 input,
 textarea,
 [contenteditable="true"] {
