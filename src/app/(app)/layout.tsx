@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BottomNav, type FeedCheckInEntry } from "@/components/shared/BottomNav";
 import { ClanSwitcher } from "@/components/shared/ClanSwitcher";
+import { InstallPrompt } from "@/components/shared/InstallPrompt";
 import { PullToRefresh } from "@/components/shared/PullToRefresh";
 import { getLatestCheckInAt } from "@/features/check-ins";
 import { getUserClans } from "@/features/clans";
@@ -57,6 +58,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </main>
       <BottomNav clans={clans} latestFeedCheckInAtByClan={latestFeedCheckInAtByClan} />
       <AutoEnableNotifications />
+      <InstallPrompt />
     </div>
   );
 }
