@@ -1,11 +1,11 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
-import { makeAdmin, removeMember } from "../actions";
+import { makeAdmin, nudgeMember, removeMember } from "../actions";
 
 export function MemberActionsSheet({
   clanId,
@@ -13,14 +13,26 @@ export function MemberActionsSheet({
   memberName,
   memberAvatarUrl,
   loggedToday,
+  canNudge,
 }: {
   clanId: string;
   memberUserId: string;
   memberName: string;
   memberAvatarUrl?: string | null;
   loggedToday: boolean;
+  canNudge: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [nudgeState, nudgeAction, nudgePending] = useActionState(
+    nudgeMember.bind(null, clanId, memberUserId),
+    undefined,
+  );
+
+  useEffect(() => {
+    if (!nudgeState?.sent) return;
+    const timeout = setTimeout(() => setOpen(false), 1200);
+    return () => clearTimeout(timeout);
+  }, [nudgeState?.sent]);
 
   return (
     <>
@@ -47,6 +59,21 @@ export function MemberActionsSheet({
           </div>
 
           <div className="flex flex-col gap-2">
+            {canNudge && (
+              <>
+                <form action={nudgeAction}>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    className="w-full"
+                    disabled={nudgePending || nudgeState?.sent}
+                  >
+                    {nudgeState?.sent ? "Nudged! 👋" : nudgePending ? "Sending..." : "Nudge to log"}
+                  </Button>
+                </form>
+                {nudgeState?.error && <p className="text-sm text-danger">{nudgeState.error}</p>}
+              </>
+            )}
             <form action={makeAdmin.bind(null, clanId, memberUserId)} onSubmit={() => setOpen(false)}>
               <Button type="submit" variant="secondary" className="w-full">
                 Make admin

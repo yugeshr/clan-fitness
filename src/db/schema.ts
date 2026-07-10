@@ -174,6 +174,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "reaction",
   "check_in",
   "missed_log", // reserved for a future cron-driven reminder; unused for now
+  "nudge",
 ]);
 
 export const notifications = pgTable(

@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AtSign, Bell, Heart, MessageCircle } from "lucide-react";
+import { Activity, AtSign, Bell, Heart, MessageCircle, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Suspense, use, useState, useTransition, type ComponentType } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -15,6 +15,7 @@ const TYPE_ICON: Record<NotificationType, ComponentType<{ size?: number; classNa
   reaction: Heart,
   check_in: Activity,
   missed_log: Bell,
+  nudge: Zap,
 };
 
 export function NotificationBell({ initialUnreadCount }: { initialUnreadCount: Promise<number> }) {
