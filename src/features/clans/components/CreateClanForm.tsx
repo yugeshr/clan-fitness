@@ -22,6 +22,9 @@ export function CreateClanForm() {
         </label>
         <Input id="description" name="description" placeholder="Accountability crew" />
       </div>
+      <p className="text-xs text-foreground-tertiary">
+        You&apos;ll get an invite link to share with your group right after this.
+      </p>
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Creating..." : "Create clan"}
