@@ -1,12 +1,25 @@
+import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getClanByInviteCode, JoinClanForm } from "@/features/clans";
 
-export default async function JoinPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ code?: string }>;
-}) {
+type JoinPageProps = { searchParams: Promise<{ code?: string }> };
+
+// Runs alongside (not instead of) the page below — Next calls both for the same request, so an
+// invite link's crawler preview shows the clan being invited to instead of the app's generic title.
+export async function generateMetadata({ searchParams }: JoinPageProps): Promise<Metadata> {
+  const { code } = await searchParams;
+  const clan = code ? await getClanByInviteCode(code) : null;
+
+  const title = clan ? `Join ${clan.name} on Clan Fitness` : "Join a clan on Clan Fitness";
+  const description = clan
+    ? `You've been invited to join ${clan.name} — track gym, steps, and food together.`
+    : "Track gym, steps, and food with your accountability group.";
+
+  return { title, description, openGraph: { title, description } };
+}
+
+export default async function JoinPage({ searchParams }: JoinPageProps) {
   const { code } = await searchParams;
   const { userId } = await auth();
 
