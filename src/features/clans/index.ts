@@ -23,6 +23,7 @@ export { ClanMembersSection } from "./components/ClanMembersSection";
 export { ClanSettingsSheet } from "./components/ClanSettingsSheet";
 export { CreateClanForm } from "./components/CreateClanForm";
 export { JoinClanForm } from "./components/JoinClanForm";
+export { LeaveClanSheet } from "./components/LeaveClanSheet";
 export { MemberActionsSheet } from "./components/MemberActionsSheet";
 export { RenameClanForm } from "./components/RenameClanForm";
 export { ShareInviteButton } from "./components/ShareInviteButton";

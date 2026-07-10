@@ -68,6 +68,12 @@ export async function leaveClan(clanId: string) {
   const user = await getOrSyncCurrentUser();
   if (!user) throw new Error("Not signed in.");
 
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership) throw new Error("You're not a member of this clan.");
+  if (membership.role === "admin") {
+    throw new Error("Admins can't leave a clan — make someone else admin first.");
+  }
+
   await db
     .delete(clanMemberships)
     .where(and(eq(clanMemberships.userId, user.id), eq(clanMemberships.clanId, clanId)));
