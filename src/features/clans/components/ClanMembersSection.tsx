@@ -1,6 +1,7 @@
 import { Avatar } from "@/components/shared/Avatar";
 import { LeaveClanSheet } from "./LeaveClanSheet";
 import { MemberActionsSheet } from "./MemberActionsSheet";
+import { NudgeSheet } from "./NudgeSheet";
 import type { getClanMembers } from "../queries";
 
 type Member = Awaited<ReturnType<typeof getClanMembers>>[number];
@@ -18,6 +19,11 @@ export function ClanMembersSection({
   currentUserId: string;
   loggedToday: Set<string>;
 }) {
+  // Anyone who's logged today can nudge anyone (any role) who hasn't — computed from the same
+  // loggedToday set already fetched for the "Logged today"/"Not logged yet" row text.
+  const canNudge = (targetId: string) =>
+    targetId !== currentUserId && !loggedToday.has(targetId) && loggedToday.has(currentUserId);
+
   return (
     <section className="flex flex-col gap-1 rounded-xl border border-surface-border bg-surface p-5">
       <h2 className="mb-2 font-semibold text-foreground">Members</h2>
@@ -31,6 +37,7 @@ export function ClanMembersSection({
                 memberName={user.name}
                 memberAvatarUrl={user.avatarUrl}
                 loggedToday={loggedToday.has(user.id)}
+                canNudge={canNudge(user.id)}
               />
             ) : user.id === currentUserId && role !== "admin" ? (
               <LeaveClanSheet
@@ -38,6 +45,13 @@ export function ClanMembersSection({
                 memberName={user.name}
                 memberAvatarUrl={user.avatarUrl}
                 loggedToday={loggedToday.has(user.id)}
+              />
+            ) : canNudge(user.id) ? (
+              <NudgeSheet
+                clanId={clanId}
+                memberUserId={user.id}
+                memberName={user.name}
+                memberAvatarUrl={user.avatarUrl}
               />
             ) : (
               <div className="flex min-w-0 items-center gap-3">

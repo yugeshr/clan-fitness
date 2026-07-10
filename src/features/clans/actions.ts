@@ -5,8 +5,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { clanMemberships, clans } from "@/db/schema";
+import { getUsersLoggedToday } from "@/features/check-ins";
+import { hasBeenNudgedToday } from "@/features/notifications/queries";
+import { notifyUser } from "@/features/notifications/send";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { generateInviteCode } from "@/lib/invite-code";
+import { pickNudgeMessage } from "./nudge-messages";
 import { getClanByInviteCode, getClanMemberCount, getClanMembership } from "./queries";
 
 export type ClanActionState = { error?: string } | undefined;
@@ -170,4 +174,32 @@ export async function regenerateInviteCode(clanId: string) {
   await db.update(clans).set({ inviteCode }).where(eq(clans.id, clanId));
 
   revalidatePath(`/clans/${clanId}/manage`);
+}
+
+export type NudgeActionState = { error?: string; sent?: boolean } | undefined;
+
+export async function nudgeMember(clanId: string, targetUserId: string): Promise<NudgeActionState> {
+  const user = await getOrSyncCurrentUser();
+  if (!user) return { error: "Not signed in." };
+  if (targetUserId === user.id) return { error: "You can't nudge yourself." };
+
+  const membership = await getClanMembership(user.id, clanId);
+  if (!membership) return { error: "You're not a member of this clan." };
+  const target = await getClanMembership(targetUserId, clanId);
+  if (!target) return { error: "That user is not a member of this clan." };
+
+  const loggedToday = await getUsersLoggedToday([user.id, targetUserId]);
+  if (!loggedToday.has(user.id)) return { error: "Log today before nudging someone else." };
+  if (loggedToday.has(targetUserId)) return { error: "They've already logged today." };
+
+  if (await hasBeenNudgedToday(targetUserId)) return { error: "Already nudged today." };
+
+  await notifyUser(targetUserId, {
+    type: "nudge",
+    title: pickNudgeMessage(),
+    body: `${user.name} nudged you to log today.`,
+    url: "/logs",
+  });
+
+  return { sent: true };
 }
