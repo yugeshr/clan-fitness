@@ -4,6 +4,12 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  // Shared invite links must be reachable while signed out — the page itself already redirects
+  // to sign-in (preserving the invite code via redirect_url) when there's no session. Leaving
+  // this to auth.protect() instead breaks link-preview crawlers (WhatsApp/iMessage/etc.), which
+  // don't send normal browser Accept headers — protect() responds to those with a 404 rather than
+  // a redirect, so the shared link's preview showed "404: This page could not be found".
+  "/join(.*)",
   // PWA manifest icons — extensionless, so unlike .webmanifest they aren't excluded by the
   // matcher below, and browsers fetch them unauthenticated during install-eligibility checks.
   "/icon-192",
