@@ -29,17 +29,18 @@ function ensureVapidConfigured(): boolean {
   return true;
 }
 
-/** Sends a push notification to every device the user has subscribed on. Silently drops subscriptions the push service reports as gone. */
-async function sendPushNotifications(userId: string, payload: NotificationPayload) {
+/** Sends a push notification to every device the user has subscribed on. Silently drops subscriptions the push service reports as gone. Returns how many sends succeeded. */
+async function sendPushNotifications(userId: string, payload: NotificationPayload): Promise<number> {
   if (!ensureVapidConfigured()) {
     console.warn("Push notifications are not configured (missing VAPID env vars); skipping.");
     await logNotificationDelivery(userId, "push", "skipped", "VAPID env vars missing");
-    return;
+    return 0;
   }
 
   const subscriptions = await getPushSubscriptionsForUser(userId);
-  if (subscriptions.length === 0) return; // no devices — not a delivery attempt worth logging
+  if (subscriptions.length === 0) return 0; // no devices — not a delivery attempt worth logging
 
+  let sent = 0;
   await Promise.all(
     subscriptions.map(async (sub) => {
       try {
@@ -49,8 +50,10 @@ async function sendPushNotifications(userId: string, payload: NotificationPayloa
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
           JSON.stringify(payload),
+          { urgency: "high" },
         );
         await logNotificationDelivery(userId, "push", "sent");
+        sent += 1;
       } catch (error) {
         const statusCode = (error as { statusCode?: number }).statusCode;
         if (statusCode === 404 || statusCode === 410) {
@@ -63,6 +66,17 @@ async function sendPushNotifications(userId: string, payload: NotificationPayloa
       }
     }),
   );
+  return sent;
+}
+
+/** Sends a one-off push straight to this user's devices, bypassing email/persistence — used by the "send test notification" button so people can confirm delivery without leaving a fake entry in their notification history. */
+export async function sendTestPushNotification(userId: string): Promise<{ sent: number }> {
+  const sent = await sendPushNotifications(userId, {
+    type: "check_in",
+    title: "Test notification",
+    body: "If you can see this, push notifications are working on this device.",
+  });
+  return { sent };
 }
 
 async function persistNotification(userId: string, payload: NotificationPayload) {

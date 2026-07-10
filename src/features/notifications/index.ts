@@ -1,4 +1,4 @@
-export { getNotificationsAndMarkRead, subscribeToPush, unsubscribeFromPush } from "./actions";
+export { getNotificationsAndMarkRead, sendTestNotification, subscribeToPush, unsubscribeFromPush } from "./actions";
 export { AutoEnableNotifications } from "./components/AutoEnableNotifications";
 export { NotificationBell } from "./components/NotificationBell";
 export { PushNotificationManager } from "./components/PushNotificationManager";

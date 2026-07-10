@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { notifications, pushSubscriptions } from "@/db/schema";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { getNotificationsForUser } from "./queries";
+import { sendTestPushNotification } from "./send";
 import type { PushSubscriptionInput } from "./types";
 
 export async function subscribeToPush(subscription: PushSubscriptionInput): Promise<{ error?: string }> {
@@ -36,6 +37,15 @@ export async function unsubscribeFromPush(endpoint: string): Promise<{ error?: s
     .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, user.id)));
 
   return {};
+}
+
+export async function sendTestNotification(): Promise<{ error?: string; sent?: number }> {
+  const user = await getOrSyncCurrentUser();
+  if (!user) return { error: "Not signed in." };
+
+  const { sent } = await sendTestPushNotification(user.id);
+  if (sent === 0) return { error: "No active push subscription found for this device." };
+  return { sent };
 }
 
 /** Fetches recent notifications, then marks them all read — the returned rows still reflect who was unread before this call. */
