@@ -167,7 +167,13 @@ export function CommentThread({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    // min-h-60 + justify-end: the mention dropdown below is absolutely positioned above the
+    // input (bottom-full), so it needs real space above the input to render into. With zero (or
+    // few) comments there's nothing else in this column to provide that space, and the dropdown
+    // was getting clipped by the sheet's own top edge. justify-end keeps this reserved space
+    // above the content instead of below it; once real comments exceed this min-height, both
+    // become no-ops and the layout behaves exactly as before.
+    <div className="flex min-h-60 flex-col justify-end gap-2">
       {comments.length > 0 && (
         <ul className="flex flex-col gap-2">
           {comments.map((comment) => (
