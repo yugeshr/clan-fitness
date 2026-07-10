@@ -1,4 +1,5 @@
 import { Avatar } from "@/components/shared/Avatar";
+import { LeaveClanSheet } from "./LeaveClanSheet";
 import { MemberActionsSheet } from "./MemberActionsSheet";
 import type { getClanMembers } from "../queries";
 
@@ -8,11 +9,13 @@ export function ClanMembersSection({
   clanId,
   members,
   isAdmin,
+  currentUserId,
   loggedToday,
 }: {
   clanId: string;
   members: Member[];
   isAdmin: boolean;
+  currentUserId: string;
   loggedToday: Set<string>;
 }) {
   return (
@@ -25,6 +28,13 @@ export function ClanMembersSection({
               <MemberActionsSheet
                 clanId={clanId}
                 memberUserId={user.id}
+                memberName={user.name}
+                memberAvatarUrl={user.avatarUrl}
+                loggedToday={loggedToday.has(user.id)}
+              />
+            ) : user.id === currentUserId && role !== "admin" ? (
+              <LeaveClanSheet
+                clanId={clanId}
                 memberName={user.name}
                 memberAvatarUrl={user.avatarUrl}
                 loggedToday={loggedToday.has(user.id)}

@@ -78,7 +78,13 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
       id: "members",
       label: "Members",
       content: (
-        <ClanMembersSection clanId={clanId} members={members} isAdmin={isAdmin} loggedToday={loggedToday} />
+        <ClanMembersSection
+          clanId={clanId}
+          members={members}
+          isAdmin={isAdmin}
+          currentUserId={userId}
+          loggedToday={loggedToday}
+        />
       ),
     },
   ];
