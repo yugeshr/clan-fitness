@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import Link from "next/link";
 import { getCommentsForCheckIns } from "@/features/comments";
 import { FEED_PAGE_SIZE, getCheckInById, getClanFeed } from "@/features/check-ins";
 import { getClanMembers } from "@/features/clans";
@@ -36,7 +37,12 @@ export async function ClanFeed({
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-foreground-tertiary">No check-ins yet — be the first to log today.</p>
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-surface-border py-10 text-center">
+        <p className="text-sm text-foreground-secondary">No check-ins yet. Someone&apos;s got to go first 👀</p>
+        <Link href="/logs" className="text-sm font-semibold text-accent">
+          Log today →
+        </Link>
+      </div>
     );
   }
 
