@@ -1,3 +1,4 @@
+import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { CreateClanForm, JoinClanForm, getUserClans } from "@/features/clans";
@@ -11,6 +12,12 @@ export default async function OnboardingPage() {
 
   return (
     <main className="mx-auto flex max-w-2xl flex-1 flex-col gap-10 px-6 py-12">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-sans text-lg font-bold tracking-tight text-foreground">
+          Clan <span className="text-accent">Fitness</span>
+        </span>
+        <UserButton />
+      </div>
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-foreground">Join or create a clan</h1>
         <p className="text-foreground-secondary">You need to be in a clan to start tracking.</p>
