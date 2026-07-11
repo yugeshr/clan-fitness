@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { appConfig } from "@/db/schema";
+import { appConfig, broadcastMessages } from "@/db/schema";
+import { getClanMembersForClanIds } from "@/features/clans";
+import { notifyUser } from "@/features/notifications/send";
 import { isAdminUser } from "./auth";
 import type { ConfigKey } from "./config";
+import { getAllClansForAdmin } from "./queries";
 
 export type AdminActionState = { error?: string } | undefined;
 
@@ -60,4 +63,36 @@ export async function updateAppConfig(
 
   revalidatePath("/admin");
   revalidatePath("/clans/[clanId]/manage", "page");
+}
+
+export type BroadcastActionState = { error?: string; sentCount?: number } | undefined;
+
+export async function sendBroadcast(
+  _prevState: BroadcastActionState,
+  formData: FormData,
+): Promise<BroadcastActionState> {
+  if (!(await isAdminUser())) return { error: "Not authorized." };
+
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const clanIds = formData.getAll("clanIds").map(String);
+
+  if (!title) return { error: "Title is required." };
+  if (!body) return { error: "Message is required." };
+  if (clanIds.length === 0) return { error: "Select at least one clan." };
+
+  const [allClans, members] = await Promise.all([getAllClansForAdmin(), getClanMembersForClanIds(clanIds)]);
+
+  const clanNames = allClans.filter((clan) => clanIds.includes(clan.id)).map((clan) => clan.name);
+  // A member of more than one selected clan gets exactly one notification, not one per clan.
+  const recipientIds = [...new Set(members.map((member) => member.user.id))];
+
+  await Promise.all(
+    recipientIds.map((userId) => notifyUser(userId, { type: "broadcast", title, body })),
+  );
+
+  await db.insert(broadcastMessages).values({ title, body, clanNames, recipientCount: recipientIds.length });
+
+  revalidatePath("/admin");
+  return { sentCount: recipientIds.length };
 }

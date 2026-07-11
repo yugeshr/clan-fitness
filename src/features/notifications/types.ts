@@ -13,7 +13,8 @@ export type NotificationType =
   | "check_in"
   | "missed_log"
   | "nudge"
-  | "feedback";
+  | "feedback"
+  | "broadcast";
 
 export type NotificationPayload = {
   type: NotificationType;
