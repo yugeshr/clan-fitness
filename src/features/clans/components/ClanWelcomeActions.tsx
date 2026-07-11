@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GoalsForm } from "@/features/goals";
+// Direct path, not the feature barrel (@/features/goals): that barrel also re-exports
+// queries.ts's server-only functions (they import the Drizzle db client directly, no "use
+// server"), and this component is a client-boundary root — importing through the barrel pulled
+// the database driver into the browser bundle, crashing on navigation to this page.
+import { GoalsForm } from "@/features/goals/components/GoalsForm";
 
 export function ClanWelcomeActions({
   clanId,

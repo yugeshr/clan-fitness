@@ -1,3 +1,5 @@
+import "server-only";
+
 import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, pushSubscriptions } from "@/db/schema";

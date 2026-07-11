@@ -1,3 +1,5 @@
+import "server-only";
+
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { comments, users } from "@/db/schema";

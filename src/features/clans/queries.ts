@@ -1,3 +1,5 @@
+import "server-only";
+
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { clanMemberships, clans, users } from "@/db/schema";
