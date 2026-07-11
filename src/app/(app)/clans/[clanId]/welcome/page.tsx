@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
-import { ClanWelcomeActions, getClanById, getClanMembership } from "@/features/clans";
+import { ClanWelcomeActions, ShareInviteButton, getClanById, getClanMembership } from "@/features/clans";
 import { getUserGoals } from "@/features/goals";
 
 export default async function ClanWelcomePage({
@@ -19,6 +19,7 @@ export default async function ClanWelcomePage({
   if (!clan) notFound();
 
   const hasGoals = existingGoals.length > 0;
+  const isAdmin = membership.role === "admin";
 
   return (
     <main className="mx-auto flex max-w-md flex-1 flex-col gap-8 px-6 py-12">
@@ -29,6 +30,18 @@ export default async function ClanWelcomePage({
           about to see it in the feed.
         </p>
       </div>
+
+      {isAdmin && (
+        <div className="flex flex-col gap-3 rounded-xl border border-surface-border bg-surface p-5">
+          <div>
+            <h2 className="font-semibold text-foreground">Invite your clan</h2>
+            <p className="text-sm text-foreground-tertiary">
+              Share this link so your friends can join {clan.name}.
+            </p>
+          </div>
+          <ShareInviteButton inviteCode={clan.inviteCode} clanName={clan.name} />
+        </div>
+      )}
 
       {hasGoals ? (
         <ClanWelcomeActions clanId={clanId} mode="continue" />
