@@ -5,7 +5,7 @@ import webpush from "web-push";
 import { db } from "@/db";
 import { notifications, pushSubscriptions, users } from "@/db/schema";
 import { logNotificationDelivery } from "./delivery-log";
-import { getPushSubscriptionsForUser } from "./queries";
+import { getPushSubscriptionsForUser, getUnreadNotificationCount } from "./queries";
 import { sendEmailNotification } from "./send-email";
 import type { NotificationPayload } from "./types";
 
@@ -30,7 +30,10 @@ function ensureVapidConfigured(): boolean {
 }
 
 /** Sends a push notification to every device the user has subscribed on. Silently drops subscriptions the push service reports as gone. Returns how many sends succeeded. */
-async function sendPushNotifications(userId: string, payload: NotificationPayload): Promise<number> {
+async function sendPushNotifications(
+  userId: string,
+  payload: NotificationPayload & { unreadCount?: number },
+): Promise<number> {
   if (!ensureVapidConfigured()) {
     console.warn("Push notifications are not configured (missing VAPID env vars); skipping.");
     await logNotificationDelivery(userId, "push", "skipped", "VAPID env vars missing");
@@ -97,10 +100,17 @@ async function persistNotification(userId: string, payload: NotificationPayload)
  * email is a backup channel and the in-app record is the durable source of truth either way.
  */
 export async function notifyUser(userId: string, payload: NotificationPayload) {
-  const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+  const [[user], unreadBefore] = await Promise.all([
+    db.select({ email: users.email }).from(users).where(eq(users.id, userId)),
+    getUnreadNotificationCount(userId),
+  ]);
+  // This call always inserts exactly one new unread notification below, so the post-send count
+  // is knowable without waiting on persistNotification to finish — lets the service worker set an
+  // accurate home-screen app badge (see sw.js's push handler) without adding to the send's latency.
+  const unreadCount = unreadBefore + 1;
 
   await Promise.all([
-    sendPushNotifications(userId, payload),
+    sendPushNotifications(userId, { ...payload, unreadCount }),
     user?.email ? sendEmailNotification(userId, user.email, payload) : Promise.resolve(),
     persistNotification(userId, payload),
   ]);
