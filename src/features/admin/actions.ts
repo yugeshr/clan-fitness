@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { appConfig } from "@/db/schema";
@@ -13,8 +12,7 @@ export async function updateAppConfig(
   _prevState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await auth();
-  if (!isAdminUser(userId)) return { error: "Not authorized." };
+  if (!(await isAdminUser())) return { error: "Not authorized." };
 
   const stepWeight = Number(formData.get("stepWeight"));
   const streakWeight = Number(formData.get("streakWeight"));

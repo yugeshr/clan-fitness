@@ -1,4 +1,4 @@
-export { isAdminUser } from "./auth";
+export { getAdminUserId, isAdminUser } from "./auth";
 export { getAppConfig } from "./config";
 export type { ConfigKey } from "./config";
 export { updateAppConfig } from "./actions";
