@@ -2,7 +2,7 @@
 
 import { Activity, AtSign, Bell, Heart, Megaphone, MessageCircle, MessageSquare, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Suspense, use, useState, useTransition, type ComponentType } from "react";
+import { Suspense, use, useEffect, useState, useTransition, type ComponentType } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { getNotificationsAndMarkRead } from "../actions";
 import { formatRelativeTime } from "../format";
@@ -101,6 +101,19 @@ export function NotificationBell({ initialUnreadCount }: { initialUnreadCount: P
 function UnreadBadge({ countPromise, cleared }: { countPromise: Promise<number>; cleared: boolean }) {
   const count = use(countPromise);
   const display = cleared ? 0 : count;
+
+  // Syncs the PWA home-screen app icon badge to whatever's shown here — covers the app being
+  // opened directly (a push's own badge write, in sw.js, only fires while the app is closed) and
+  // going back to zero once the user reads their notifications.
+  useEffect(() => {
+    if (!("setAppBadge" in navigator)) return;
+    if (display > 0) {
+      navigator.setAppBadge(display).catch(() => {});
+    } else {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }, [display]);
+
   if (display <= 0) return null;
   return (
     <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-white">

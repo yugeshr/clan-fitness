@@ -20,12 +20,23 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
   const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: "/icon-192",
-      badge: "/icon-192",
-      data: { url: data.url ?? "/" },
-    }),
+    (async () => {
+      await self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: "/icon-192",
+        badge: "/icon-192",
+        data: { url: data.url ?? "/" },
+      });
+      // Home-screen app icon badge (Chrome/Android, Safari 16.4+/iOS when installed). Feature-
+      // detected since older browsers/iOS versions don't support the Badging API at all.
+      if (typeof data.unreadCount === "number" && "setAppBadge" in navigator) {
+        if (data.unreadCount > 0) {
+          await navigator.setAppBadge(data.unreadCount);
+        } else {
+          await navigator.clearAppBadge();
+        }
+      }
+    })(),
   );
 });
 
