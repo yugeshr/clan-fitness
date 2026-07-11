@@ -41,11 +41,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-1 flex-col">
       <header className="fixed inset-x-0 top-0 z-10 border-b border-surface-border bg-surface pt-[env(safe-area-inset-top)]">
         <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-          <Link
-            href="/logs"
-            className="shrink-0 font-sans text-lg font-bold tracking-tight text-foreground"
-          >
-            Clan <span className="text-accent">Fitness</span>
+          <Link href="/logs" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG logo, no benefit from next/image's raster pipeline */}
+            <img src="/logo/clan-fitness-logo.svg" alt="Clan Fitness" className="h-7 w-auto" />
           </Link>
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <ClanSwitcher clans={clans} />
