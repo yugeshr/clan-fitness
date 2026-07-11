@@ -1,25 +1,14 @@
-import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import sharp from "sharp";
 
 export const dynamic = "force-static";
 
-// Android's maskable-icon spec crops to a safe zone (~80% diameter circle centered
-// on the canvas), so the glyph is kept smaller and more central than the plain icons.
+// Android's maskable-icon spec crops to a safe zone (~80% diameter circle centered on the
+// canvas), so we flatten to a full-bleed background (matching the app's own dark background)
+// rather than the source's transparent margin, which would otherwise show through the mask.
 export async function GET() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#0d0d0d",
-        }}
-      >
-        <div style={{ display: "flex", fontSize: 180, fontWeight: 900, color: "#3bffad" }}>C</div>
-      </div>
-    ),
-    { width: 512, height: 512 },
-  );
+  const source = await readFile(path.join(process.cwd(), "public/logo/app-icon-512.png"));
+  const png = await sharp(source).flatten({ background: "#0d0d0d" }).resize(512, 512).png().toBuffer();
+  return new Response(new Uint8Array(png), { headers: { "Content-Type": "image/png" } });
 }

@@ -13,9 +13,8 @@ export default async function OnboardingPage() {
   return (
     <main className="mx-auto flex max-w-2xl flex-1 flex-col gap-10 px-6 py-12">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-sans text-lg font-bold tracking-tight text-foreground">
-          Clan <span className="text-accent">Fitness</span>
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element -- SVG logo, no benefit from next/image's raster pipeline */}
+        <img src="/logo/clan-fitness-logo.svg" alt="Clan Fitness" className="h-7 w-auto" />
         <UserButton />
       </div>
       <div className="flex flex-col gap-2">
