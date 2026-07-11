@@ -176,6 +176,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "missed_log", // reserved for a future cron-driven reminder; unused for now
   "nudge",
   "feedback",
+  "broadcast",
 ]);
 
 export const notifications = pgTable(
@@ -252,4 +253,19 @@ export const feedbackMessages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("feedback_messages_user_created_at_idx").on(t.userId, t.createdAt)],
+);
+
+// clanNames is a snapshot of the target clans' names at send time, not a live join/FK list — so
+// history stays correct even if a targeted clan is later deleted (see deleteClan).
+export const broadcastMessages = pgTable(
+  "broadcast_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    clanNames: jsonb("clan_names").notNull().$type<string[]>(),
+    recipientCount: integer("recipient_count").notNull(),
+    sentAt: timestamp("sent_at").defaultNow().notNull(),
+  },
+  (t) => [index("broadcast_messages_sent_at_idx").on(t.sentAt)],
 );

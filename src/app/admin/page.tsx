@@ -1,16 +1,36 @@
 import { Tabs, type TabItem } from "@/components/ui/tabs";
-import { ConfigForm, getAppConfig, getNotificationDeliveryStats, NotificationHealthSection } from "@/features/admin";
+import {
+  BroadcastComposer,
+  BroadcastHistory,
+  ConfigForm,
+  getAllClansForAdmin,
+  getAppConfig,
+  getBroadcastHistory,
+  getNotificationDeliveryStats,
+  NotificationHealthSection,
+} from "@/features/admin";
 import { FeedbackThreadsList } from "@/features/feedback";
 
 export default async function AdminPage() {
-  const [config, notificationStats] = await Promise.all([getAppConfig(), getNotificationDeliveryStats()]);
+  const [config, notificationStats, clans, broadcasts] = await Promise.all([
+    getAppConfig(),
+    getNotificationDeliveryStats(),
+    getAllClansForAdmin(),
+    getBroadcastHistory(),
+  ]);
 
   const tabs: TabItem[] = [
     { id: "config", label: "Config", content: <ConfigForm config={config} /> },
     {
-      id: "notifications",
-      label: "Notifications",
-      content: <NotificationHealthSection stats={notificationStats} />,
+      id: "broadcast",
+      label: "Broadcast",
+      content: (
+        <div className="flex flex-col gap-6">
+          <BroadcastComposer clans={clans} />
+          <BroadcastHistory broadcasts={broadcasts} />
+          <NotificationHealthSection stats={notificationStats} />
+        </div>
+      ),
     },
     { id: "feedback", label: "Feedback", content: <FeedbackThreadsList /> },
   ];
