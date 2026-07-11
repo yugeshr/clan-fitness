@@ -24,7 +24,7 @@ self.addEventListener("push", (event) => {
       await self.registration.showNotification(data.title, {
         body: data.body,
         icon: "/icon-192",
-        badge: "/icon-192",
+        badge: "/badge-96",
         data: { url: data.url ?? "/" },
       });
       // Home-screen app icon badge (Chrome/Android, Safari 16.4+/iOS when installed). Feature-
