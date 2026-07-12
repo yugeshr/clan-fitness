@@ -19,6 +19,10 @@ const isPublicRoute = createRouteMatcher([
   // Google's Digital Asset Links verifier fetches this unauthenticated to confirm the TWA
   // (Play Store wrapper) owns this domain — a redirect to sign-in here fails TWA verification.
   "/.well-known/assetlinks.json",
+  // Vercel Cron invocations have no Clerk session (machine-to-machine, authenticated by their own
+  // CRON_SECRET bearer-token check inside the route handler) — without this, auth.protect() 404s
+  // the request before it ever reaches that check, silently breaking every cron route.
+  "/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
