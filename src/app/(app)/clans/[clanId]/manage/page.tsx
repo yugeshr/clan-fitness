@@ -8,6 +8,7 @@ import {
   startOfMonth,
   startOfToday,
   startOfWeek,
+  startOfYesterday,
 } from "@/features/check-ins";
 import {
   ClanLeaderboardSection,
@@ -48,20 +49,31 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
   // without a deploy (see src/features/admin/config.ts). The formula itself lives in
   // computeLeaderboard so the weekly recap cron job and every period view here score identically.
   //
-  // now is computed once and reused across all three calls so the streak (evaluated "as of
-  // window.end") comes out byte-for-byte identical no matter which period tab is selected.
+  // now is computed once and reused across all calls so the streak (evaluated "as of window.end")
+  // is consistent within each view — Today/Week/Month all end at `now` (a live streak, identical
+  // across those three), while Yesterday ends at startOfToday(now) instead, so its streak is a
+  // genuine historical snapshot (as it stood before anything logged today), not a mix of
+  // yesterday's counts with today's live streak.
   const now = new Date();
   const daysInCurrentMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
 
-  const [todayBoard, weekBoard, monthBoard] = await Promise.all([
-    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfToday(), end: now }, 1),
-    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfWeek(), end: now }, 7),
+  const [todayBoard, yesterdayBoard, weekBoard, monthBoard] = await Promise.all([
+    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfToday(now), end: now }, 1),
     computeLeaderboard(
       members,
       config,
       stepsGoals,
       gymGoals,
-      { start: startOfMonth(), end: now },
+      { start: startOfYesterday(now), end: startOfToday(now) },
+      1,
+    ),
+    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfWeek(now), end: now }, 7),
+    computeLeaderboard(
+      members,
+      config,
+      stepsGoals,
+      gymGoals,
+      { start: startOfMonth(now), end: now },
       daysInCurrentMonth,
     ),
   ]);
@@ -72,7 +84,12 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
       label: "Leaderboard",
       content: (
         <ClanLeaderboardSection
-          leaderboardsByPeriod={{ today: todayBoard, week: weekBoard, month: monthBoard }}
+          leaderboardsByPeriod={{
+            today: todayBoard,
+            yesterday: yesterdayBoard,
+            week: weekBoard,
+            month: monthBoard,
+          }}
         />
       ),
     },

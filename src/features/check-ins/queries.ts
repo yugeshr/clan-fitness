@@ -13,8 +13,12 @@ function startOfDay(date = new Date()) {
   return start;
 }
 
-export function startOfToday() {
-  return startOfDay();
+export function startOfToday(now = new Date()) {
+  return startOfDay(now);
+}
+
+export function startOfYesterday(now = new Date()) {
+  return new Date(startOfDay(now).getTime() - 24 * 60 * 60 * 1000);
 }
 
 // Sunday 08:00 IST (=02:30 UTC) — the app's week boundary. IST has no DST, so this fixed UTC

@@ -17,6 +17,7 @@ export {
   startOfMonth,
   startOfToday,
   startOfWeek,
+  startOfYesterday,
 } from "./queries";
 export type { DateWindow, FeedRow } from "./queries";
 export { DailyLogForm } from "./components/DailyLogForm";
