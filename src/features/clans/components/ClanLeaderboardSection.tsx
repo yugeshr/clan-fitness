@@ -40,6 +40,11 @@ export function ClanLeaderboardSection({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
   const leaderboard = leaderboardsByPeriod[period];
+  // Today/Yesterday are single days — a fractional gym target (the weekly target prorated to one
+  // day, e.g. "1/0.57") or a percent past 100% reads as a bug, not a stat, for something that's
+  // really just a same-day yes/no. Week/Month keep the existing count-vs-target view, where a
+  // fraction is meaningful.
+  const isDailyView = period === "today" || period === "yesterday";
 
   return (
     <section className="flex flex-col gap-1 rounded-xl border border-surface-border bg-surface p-5">
@@ -65,30 +70,39 @@ export function ClanLeaderboardSection({
                 aria-label="Toggle whole leaderboard between raw values and percent of goal"
                 className="flex min-h-11 shrink-0 flex-col items-end justify-center text-sm text-foreground-secondary"
               >
-                {showPercent ? (
-                  <>
-                    <span>
+                <span>
+                  {showPercent ? (
+                    <>
                       <span className="font-bold text-accent">{Math.round(stepPct)}%</span>{" "}
                       <span className="text-foreground-tertiary">steps</span>
-                    </span>
-                    <span>
-                      <span className="font-bold text-accent">{Math.round(gymPct)}%</span>{" "}
-                      <span className="text-foreground-tertiary">gym</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span>
+                    </>
+                  ) : (
+                    <>
                       <span className="font-bold text-accent">{compactNumber.format(periodSteps)}</span>/
                       {compactNumber.format(periodStepsTarget)}{" "}
                       <span className="text-foreground-tertiary">steps</span>
-                    </span>
-                    <span>
+                    </>
+                  )}
+                </span>
+                <span>
+                  {isDailyView ? (
+                    periodCount > 0 ? (
+                      <span className="text-success">✓ gym</span>
+                    ) : (
+                      <span className="text-foreground-muted">– gym</span>
+                    )
+                  ) : showPercent ? (
+                    <>
+                      <span className="font-bold text-accent">{Math.round(gymPct)}%</span>{" "}
+                      <span className="text-foreground-tertiary">gym</span>
+                    </>
+                  ) : (
+                    <>
                       <span className="font-bold text-accent">{periodCount}</span>/
                       {compactNumber.format(periodTarget)} <span className="text-foreground-tertiary">gym</span>
-                    </span>
-                  </>
-                )}
+                    </>
+                  )}
+                </span>
               </button>
               <span className="shrink-0 text-sm font-semibold text-ember">{streak}🔥</span>
             </li>
