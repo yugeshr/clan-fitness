@@ -7,6 +7,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { compressImage } from "@/lib/compress-image";
+import { useActionToast } from "@/lib/use-action-toast";
 import { logDailyCheckIn } from "../actions";
 import type { FoodStatus } from "../types";
 
@@ -51,6 +52,7 @@ export function DailyLogForm({
   hasLoggedToday: boolean;
 }) {
   const [state, action, pending] = useActionState(logDailyCheckIn, undefined);
+  const markSubmitted = useActionToast(state, pending, hasLoggedToday ? "Log updated" : "Log saved");
   const [photos, setPhotos] = useState<PhotoSlot[]>(
     (existingPhotoUrls ?? []).map((url) => ({ kind: "existing", url })),
   );
@@ -113,7 +115,13 @@ export function DailyLogForm({
   const uploadedUrls = photos.map((p) => p.url).filter((url): url is string => !!url);
 
   return (
-    <form action={action} className="flex flex-col gap-6">
+    <form
+      action={(formData) => {
+        markSubmitted();
+        action(formData);
+      }}
+      className="flex flex-col gap-6"
+    >
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold text-foreground">Gym</h2>
         {alreadyWorkedOut ? (

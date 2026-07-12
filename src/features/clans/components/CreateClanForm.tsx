@@ -3,13 +3,23 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActionToast } from "@/lib/use-action-toast";
 import { createClan } from "../actions";
 
 export function CreateClanForm() {
   const [state, action, pending] = useActionState(createClan, undefined);
+  // No successMessage — createClan redirect()s on success, so the client never observes a
+  // resolved non-error state; landing on the welcome page is the confirmation. Errors still toast.
+  const markSubmitted = useActionToast(state, pending);
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form
+      action={(formData) => {
+        markSubmitted();
+        action(formData);
+      }}
+      className="flex flex-col gap-4"
+    >
       <div className="flex flex-col gap-1">
         <label htmlFor="name" className="text-sm font-medium text-foreground">
           Clan name

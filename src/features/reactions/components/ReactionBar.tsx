@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { Avatar } from "@/components/shared/Avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { toast } from "@/components/ui/toast";
 import { toggleReaction, toggleSystemPostReaction } from "../actions";
 import { REACTION_EMOJIS } from "../types";
 import type { ReactionSummary } from "../types";
@@ -49,7 +50,11 @@ export function ReactionBar({
         target.kind === "checkIn"
           ? await toggleReaction(target.id, clanId, emoji)
           : await toggleSystemPostReaction(target.id, clanId, emoji);
-      if ("summary" in result) onSummaryChange(result.summary);
+      if ("summary" in result) {
+        onSummaryChange(result.summary);
+      } else {
+        toast.error(result.error);
+      }
     });
   }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActionToast } from "@/lib/use-action-toast";
 import { setGoals } from "../actions";
 
 export function GoalsForm({
@@ -15,22 +16,12 @@ export function GoalsForm({
   onSuccess?: () => void;
 }) {
   const [state, action, pending] = useActionState(setGoals, undefined);
-  // setGoals returns undefined both before any submission and after a successful one (it only
-  // ever returns something on the error path), so state alone can't tell "just saved" apart from
-  // "never submitted" — this ref is what actually distinguishes the two.
-  const submittedRef = useRef(false);
-
-  useEffect(() => {
-    if (submittedRef.current && !pending && !state?.error) {
-      submittedRef.current = false;
-      onSuccess?.();
-    }
-  }, [pending, state, onSuccess]);
+  const markSubmitted = useActionToast(state, pending, "Goals saved", onSuccess);
 
   return (
     <form
       action={(formData) => {
-        submittedRef.current = true;
+        markSubmitted();
         action(formData);
       }}
       className="flex flex-col gap-6"

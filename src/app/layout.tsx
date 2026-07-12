@@ -5,6 +5,7 @@ import { dark } from "@clerk/themes";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ServiceWorkerRegistration } from "@/components/shared/ServiceWorkerRegistration";
+import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
 const satoshi = localFont({
@@ -55,6 +56,7 @@ export default function RootLayout({
         <body className="min-h-full flex flex-col font-sans">
           {children}
           <ServiceWorkerRegistration />
+          <Toaster />
           <Analytics />
           <SpeedInsights />
         </body>
