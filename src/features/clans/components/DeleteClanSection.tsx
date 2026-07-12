@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActionToast } from "@/lib/use-action-toast";
 import { deleteClan } from "../actions";
 
 export function DeleteClanSection({
@@ -18,6 +19,8 @@ export function DeleteClanSection({
   const [confirming, setConfirming] = useState(false);
   const action = deleteClan.bind(null, clanId);
   const [state, formAction, pending] = useActionState(action, undefined);
+  // No successMessage — deleteClan redirect()s on success, so only errors ever toast.
+  const markSubmitted = useActionToast(state, pending);
 
   if (!confirming) {
     return (
@@ -28,7 +31,13 @@ export function DeleteClanSection({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form
+      action={(formData) => {
+        markSubmitted();
+        formAction(formData);
+      }}
+      className="flex flex-col gap-3"
+    >
       <p className="text-sm text-foreground-secondary">
         This permanently deletes {clanName} for{" "}
         {memberCount === 1 ? "just you" : `all ${memberCount} members`}. Everyone&apos;s reactions

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActionToast } from "@/lib/use-action-toast";
 import { updateAppConfig } from "../actions";
 import type { ConfigKey } from "../config";
 
@@ -17,9 +18,16 @@ const FIELDS: { key: ConfigKey; label: string; step?: string }[] = [
 
 export function ConfigForm({ config }: { config: Record<ConfigKey, number> }) {
   const [state, formAction, pending] = useActionState(updateAppConfig, undefined);
+  const markSubmitted = useActionToast(state, pending, "Settings saved");
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form
+      action={(formData) => {
+        markSubmitted();
+        formAction(formData);
+      }}
+      className="flex flex-col gap-4"
+    >
       <p className="text-xs text-foreground-tertiary">
         Step, streak, and gym weights should add up to 1. Takes effect immediately on every
         clan&apos;s leaderboard — no deploy needed.

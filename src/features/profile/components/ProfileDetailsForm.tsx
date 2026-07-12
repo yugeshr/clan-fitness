@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActionToast } from "@/lib/use-action-toast";
 import { updateProfileDetails } from "../actions";
 import type { Gender, UnitsPreference } from "../types";
 
@@ -33,9 +34,16 @@ export function ProfileDetailsForm({
 }) {
   const [state, action, pending] = useActionState(updateProfileDetails, undefined);
   const [units, setUnits] = useState<UnitsPreference>(unitsPreference);
+  const markSubmitted = useActionToast(state, pending, "Profile details saved");
 
   return (
-    <form action={action} className="flex flex-col gap-6">
+    <form
+      action={(formData) => {
+        markSubmitted();
+        action(formData);
+      }}
+      className="flex flex-col gap-6"
+    >
       <div className="flex flex-col gap-2">
         <label htmlFor="unitsPreference" className="text-sm font-medium text-foreground">
           Units

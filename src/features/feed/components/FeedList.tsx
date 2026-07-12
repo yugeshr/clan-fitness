@@ -12,6 +12,7 @@ import type { ClanMemberOption } from "@/features/comments/components/CommentThr
 import type { CommentWithUser } from "@/features/comments/queries";
 import { ReactionBar } from "@/features/reactions/components/ReactionBar";
 import type { ReactionSummary } from "@/features/reactions/types";
+import { toast } from "@/components/ui/toast";
 // Direct path, not the "@/features/system-posts" barrel — that barrel also exports server-only
 // queries (getSystemPostsForClan/generateWeeklyRecap), which would bundle the DB driver into the
 // client if imported from here (see the src/features/*/queries.ts "server-only" guard).
@@ -77,6 +78,8 @@ export function FeedList({
       setReactions((prev) => ({ ...prev, ...page.reactions }));
       setComments((prev) => ({ ...prev, ...page.comments }));
       setHasMore(page.hasMore);
+    } catch {
+      toast.error("Couldn't load more — try again.");
     } finally {
       setLoading(false);
     }

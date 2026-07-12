@@ -4,6 +4,7 @@ import { Activity, AtSign, Bell, Heart, Megaphone, MessageCircle, MessageSquare,
 import { useRouter } from "next/navigation";
 import { Suspense, use, useEffect, useState, useTransition, type ComponentType } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { toast } from "@/components/ui/toast";
 import { getNotificationsAndMarkRead } from "../actions";
 import { formatRelativeTime } from "../format";
 import type { NotificationRow } from "../queries";
@@ -35,7 +36,12 @@ export function NotificationBell({ initialUnreadCount }: { initialUnreadCount: P
     setOpen(true);
     setCleared(true);
     startTransition(async () => {
-      setItems(await getNotificationsAndMarkRead());
+      try {
+        setItems(await getNotificationsAndMarkRead());
+      } catch {
+        toast.error("Couldn't load notifications — try again.");
+        setItems([]);
+      }
     });
   }
 
