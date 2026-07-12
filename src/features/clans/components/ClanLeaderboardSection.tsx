@@ -21,10 +21,15 @@ export type LeaderboardEntry = {
   gymPct: number;
 };
 
-type Period = "today" | "week" | "month";
+type Period = "today" | "yesterday" | "week" | "month";
 
-const PERIOD_LABELS: Record<Period, string> = { today: "Today", week: "This week", month: "This month" };
-const PERIODS: Period[] = ["today", "week", "month"];
+const PERIOD_LABELS: Record<Period, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  week: "Weekly",
+  month: "Monthly",
+};
+const PERIODS: Period[] = ["today", "yesterday", "week", "month"];
 
 export function ClanLeaderboardSection({
   leaderboardsByPeriod,
