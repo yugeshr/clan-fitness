@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { getCommentsForCheckIns, getCommentsForSystemPosts } from "@/features/comments";
-import { FEED_PAGE_SIZE, getCheckInById, getClanFeed } from "@/features/check-ins";
+import { getCheckInById, getClanFeed } from "@/features/check-ins";
 import { getClanMembers } from "@/features/clans";
 import { getReactionsForCheckIns, getReactionsForSystemPosts } from "@/features/reactions";
 import { getSystemPostsForClan } from "@/features/system-posts";
@@ -29,15 +29,16 @@ export async function ClanFeed({
   // include. Anchor the very first page just after it instead, so it's guaranteed to be present
   // without needing unbounded "load more" clicks — this does mean anything newer than the
   // highlighted check-in won't be shown in this view; the Feed tab always has the true latest.
-  let rows;
+  let feed;
   if (highlightCheckInId) {
     const target = await getCheckInById(highlightCheckInId);
-    rows = target
+    feed = target
       ? await getClanFeed(clanId, new Date(target.createdAt.getTime() + 1))
       : await getClanFeed(clanId);
   } else {
-    rows = await getClanFeed(clanId);
+    feed = await getClanFeed(clanId);
   }
+  const { rows, hasMore } = feed;
 
   const systemPosts = await systemPostsPromise;
 
@@ -72,7 +73,7 @@ export async function ClanFeed({
       initialSystemPosts={systemPosts}
       initialReactions={{ ...reactions, ...systemPostReactions }}
       initialComments={{ ...comments, ...systemPostComments }}
-      initialHasMore={rows.length === FEED_PAGE_SIZE}
+      initialHasMore={hasMore}
       highlightCheckInId={highlightCheckInId}
     />
   );

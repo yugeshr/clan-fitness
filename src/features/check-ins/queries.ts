@@ -46,6 +46,13 @@ export function daysInMonth(now = new Date()) {
 // joinedAt timestamp despite being the same day. No row-fanout risk: the unique (userId, clanId)
 // index on clanMemberships means at most one membership row matches per checkIns.userId for a
 // fixed clanId filter.
+//
+// Gym/steps/food are separate rows (see logDailyCheckIn's per-type upsert) and can be logged
+// hours apart on the same IST day — a plain row-count LIMIT can cut a page off mid-person's-day,
+// showing e.g. their food+photos but not the gym check-in from earlier that morning until the next
+// "Load more". Fetches one extra row past the page size to detect that, and trims the split-off
+// tail so a page's last (user, day) group is always either fully included or deferred whole to the
+// next page — never partial.
 export async function getClanFeed(clanId: string, before?: Date) {
   const conditions = [
     eq(clanMemberships.clanId, clanId),
@@ -54,17 +61,30 @@ export async function getClanFeed(clanId: string, before?: Date) {
   ];
   if (before) conditions.push(lt(checkIns.createdAt, before));
 
-  return db
+  const fetched = await db
     .select({ checkIn: checkIns, user: users })
     .from(checkIns)
     .innerJoin(clanMemberships, eq(checkIns.userId, clanMemberships.userId))
     .innerJoin(users, eq(checkIns.userId, users.id))
     .where(and(...conditions))
     .orderBy(desc(checkIns.createdAt))
-    .limit(FEED_PAGE_SIZE);
+    .limit(FEED_PAGE_SIZE + 1);
+
+  const hasMore = fetched.length > FEED_PAGE_SIZE;
+  const rows = fetched.slice(0, FEED_PAGE_SIZE);
+
+  if (hasMore) {
+    const dayGroupKey = (row: (typeof fetched)[number]) => `${row.checkIn.userId}:${istDayKey(row.checkIn.createdAt)}`;
+    const boundaryKey = dayGroupKey(fetched[FEED_PAGE_SIZE]);
+    while (rows.length > 0 && dayGroupKey(rows[rows.length - 1]) === boundaryKey) {
+      rows.pop();
+    }
+  }
+
+  return { rows, hasMore };
 }
 
-export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>[number];
+export type FeedRow = Awaited<ReturnType<typeof getClanFeed>>["rows"][number];
 
 /** Looked up only for its `createdAt`, to anchor a feed page around it — clan-visibility is enforced by getClanFeed's own join, not here. */
 export async function getCheckInById(checkInId: string) {
