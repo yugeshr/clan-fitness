@@ -112,6 +112,11 @@ export function DailyLogForm({
   }
 
   const anyUploading = photos.some((p) => p.kind === "new" && p.uploading);
+  // A failed upload (flaky connection, oversized file) used to leave the Save button enabled the
+  // moment it settled — easy to miss the tiny error text under the thumbnail and save a log with
+  // fewer photos than intended, with nothing to show for it after the fact. Block save until the
+  // failed slot is removed, same as an in-flight upload already blocks it.
+  const anyPhotoErrors = photos.some((p) => p.kind === "new" && p.error);
   const uploadedUrls = photos.map((p) => p.url).filter((url): url is string => !!url);
 
   return (
@@ -254,8 +259,11 @@ export function DailyLogForm({
         ))}
       </div>
 
+      {anyPhotoErrors && (
+        <p className="text-sm text-danger">Remove the failed photo above before saving.</p>
+      )}
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
-      <Button type="submit" disabled={pending || anyUploading}>
+      <Button type="submit" disabled={pending || anyUploading || anyPhotoErrors}>
         {pending ? "Saving..." : hasLoggedToday ? "Update today's log" : "Save today's log"}
       </Button>
     </form>
