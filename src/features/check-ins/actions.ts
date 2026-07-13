@@ -88,7 +88,7 @@ export async function logDailyCheckIn(
   // notifyClansOfCheckIn for why it must be oldest, not whichever this submission touched last.
   const todaysCheckIns: { id: string; createdAt: Date }[] = [];
 
-  const existingGym = await getTodaysCheckIn(user.id, "gym");
+  const existingGym = await getTodaysCheckIn(user.id, "gym", user.timezone);
   if (workedOut || existingGym) {
     const gymNote = String(formData.get("gymNote") ?? "").trim() || undefined;
     if (existingGym) {
@@ -110,7 +110,7 @@ export async function logDailyCheckIn(
   }
 
   if (count !== undefined) {
-    const existingSteps = await getTodaysCheckIn(user.id, "steps");
+    const existingSteps = await getTodaysCheckIn(user.id, "steps", user.timezone);
     if (existingSteps) {
       await db.update(checkIns).set({ value: { count } }).where(eq(checkIns.id, existingSteps.id));
       todaysCheckIns.push({ id: existingSteps.id, createdAt: existingSteps.createdAt });
@@ -134,7 +134,7 @@ export async function logDailyCheckIn(
   if (hasFoodStatus || hasPhoto) {
     const foodNote = String(formData.get("foodNote") ?? "").trim() || undefined;
 
-    const existingFood = await getTodaysCheckIn(user.id, "food");
+    const existingFood = await getTodaysCheckIn(user.id, "food", user.timezone);
     if (existingFood) {
       const existingValue = existingFood.value as FoodCheckInValue;
       // No merge with the previous value's photos needed: the client always sends the complete

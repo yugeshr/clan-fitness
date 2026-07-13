@@ -3,18 +3,22 @@ import "server-only";
 import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, pushSubscriptions } from "@/db/schema";
-import { startOfIstDay } from "@/lib/ist-date";
+import { startOfUserDay } from "@/lib/timezone-date";
 
 export type NotificationRow = typeof notifications.$inferSelect;
 
-/** One nudge per recipient per day, regardless of who sends it — a cheap spam guard reusing the
- * existing notifications table instead of a dedicated one. */
-export async function hasBeenNudgedToday(userId: string) {
+/** One nudge per recipient per day (their own day, not the sender's), regardless of who sends it —
+ * a cheap spam guard reusing the existing notifications table instead of a dedicated one. */
+export async function hasBeenNudgedToday(userId: string, timezone: string | null) {
   const [row] = await db
     .select({ count: count() })
     .from(notifications)
     .where(
-      and(eq(notifications.userId, userId), eq(notifications.type, "nudge"), gte(notifications.createdAt, startOfIstDay())),
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.type, "nudge"),
+        gte(notifications.createdAt, startOfUserDay(timezone)),
+      ),
     );
   return (row?.count ?? 0) > 0;
 }

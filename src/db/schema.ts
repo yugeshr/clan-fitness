@@ -37,6 +37,10 @@ export const users = pgTable("users", {
   gender: genderEnum("gender"),
   unitsPreference: unitsPreferenceEnum("units_preference").notNull().default("metric"),
   bio: text("bio"),
+  // IANA zone name, auto-detected client-side and kept in sync (see src/components/shared/
+  // TimezoneSync.tsx) — powers per-user day boundaries for check-in dedup/streaks/nudge guard (see
+  // src/lib/timezone-date.ts). Default matches DEFAULT_TIMEZONE there; keep both in sync.
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
 });
 
 export const clans = pgTable("clans", {

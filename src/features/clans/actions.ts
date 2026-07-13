@@ -8,7 +8,7 @@ import { clanMemberships, clans, comments, reactions, systemPosts } from "@/db/s
 import { getUsersLoggedToday } from "@/features/check-ins";
 import { hasBeenNudgedToday } from "@/features/notifications/queries";
 import { notifyUser } from "@/features/notifications/send";
-import { getOrSyncCurrentUser } from "@/lib/current-user";
+import { getOrSyncCurrentUser, getUserById } from "@/lib/current-user";
 import { generateInviteCode } from "@/lib/invite-code";
 import { pickNudgeMessage } from "./nudge-messages";
 import { getClanById, getClanByInviteCode, getClanMemberCount, getClanMembership } from "./queries";
@@ -229,7 +229,11 @@ export async function nudgeMember(clanId: string, targetUserId: string): Promise
   if (!loggedToday.has(user.id)) return { error: "Log today before nudging someone else." };
   if (loggedToday.has(targetUserId)) return { error: "They've already logged today." };
 
-  if (await hasBeenNudgedToday(targetUserId)) return { error: "Already nudged today." };
+  // The recipient's own day, not the sender's — see hasBeenNudgedToday.
+  const targetUser = await getUserById(targetUserId);
+  if (await hasBeenNudgedToday(targetUserId, targetUser?.timezone ?? null)) {
+    return { error: "Already nudged today." };
+  }
 
   await notifyUser(targetUserId, {
     type: "nudge",

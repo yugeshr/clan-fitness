@@ -81,11 +81,15 @@ export async function computeLeaderboard(
   const dailyStepTargets = new Map(
     memberIds.map((id) => [id, stepsGoals.get(id) ?? config.defaultDailyStepsTarget]),
   );
+  // Streaks are a personal "did I show up on my own consecutive days" metric — unlike this
+  // function's window-based counts/totals above (a shared clock, needed for fair cross-member
+  // comparison), each member's streak uses their own timezone. See queries.ts's streakFromDayKeys.
+  const timezoneByUserId = new Map(members.map((m) => [m.user.id, m.user.timezone]));
 
   const [periodCounts, periodStepsTotals, streaks] = await Promise.all([
     getWeeklyCounts(memberIds, "gym", window),
     getWeeklyStepsTotals(memberIds, window),
-    getStepGoalStreaks(memberIds, dailyStepTargets, window.end ?? new Date()),
+    getStepGoalStreaks(memberIds, dailyStepTargets, window.end ?? new Date(), timezoneByUserId),
   ]);
 
   const statsByUser = new Map<string, MemberStats>(

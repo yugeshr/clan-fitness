@@ -4,6 +4,7 @@ import { and, desc, eq, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { checkIns, clanMemberships, users } from "@/db/schema";
 import { daysInIstMonth, istDayKey, startOfIstDay, startOfIstMonth } from "@/lib/ist-date";
+import { startOfUserDay, userDayKey } from "@/lib/timezone-date";
 import type { CheckInType, StepsCheckInValue } from "./types";
 
 // Busy clans can generate a check-in every few minutes across members — 20 covered only a couple
@@ -122,11 +123,17 @@ export async function getUsersLoggedToday(userIds: string[]) {
   return new Set(rows.map((row) => row.userId));
 }
 
-export async function getTodaysCheckIn(userId: string, type: CheckInType) {
+// Uses the user's OWN timezone (unlike startOfToday/the rest of this file, which stay on the
+// shared IST reference for cross-member views) — this is what "today" means to *them* for the
+// purpose of "have I already logged this today," so a user whose local day rolls over hours away
+// from IST's doesn't get an attempted new check-in silently treated as an update to an earlier one.
+export async function getTodaysCheckIn(userId: string, type: CheckInType, timezone: string | null) {
   const [existing] = await db
     .select()
     .from(checkIns)
-    .where(and(eq(checkIns.userId, userId), eq(checkIns.type, type), gte(checkIns.createdAt, startOfToday())));
+    .where(
+      and(eq(checkIns.userId, userId), eq(checkIns.type, type), gte(checkIns.createdAt, startOfUserDay(timezone))),
+    );
   return existing ?? null;
 }
 
@@ -186,30 +193,34 @@ export async function getWeeklyStepsTotals(userIds: string[], { start, end = new
 // asOf anchors the cursor's starting day — defaults to today so existing callers (streak "as of
 // now") are unaffected. Callers computing a past week's streak (see getStepGoalStreaks) pass the
 // end of that week instead, so the walk-backward never considers days beyond it.
-function streakFromDayKeys(dayKeys: Set<string>, asOf: Date = new Date()) {
-  const cursor = startOfIstDay(asOf);
-  if (!dayKeys.has(istDayKey(cursor))) {
+//
+// Streaks use the PERSON'S OWN timezone (unlike getClanFeed's day-grouping above, or
+// startOfToday/startOfWeek/startOfMonth) — a streak is "did I show up on my own consecutive days,"
+// not a shared-clock comparison metric, so it should stay correct regardless of who's viewing it.
+function streakFromDayKeys(dayKeys: Set<string>, timezone: string | null, asOf: Date = new Date()) {
+  const cursor = startOfUserDay(timezone, asOf);
+  if (!dayKeys.has(userDayKey(timezone, cursor))) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
 
   let streak = 0;
-  while (dayKeys.has(istDayKey(cursor))) {
+  while (dayKeys.has(userDayKey(timezone, cursor))) {
     streak++;
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return streak;
 }
 
-export async function getUserStreak(userId: string, type: CheckInType) {
+export async function getUserStreak(userId: string, type: CheckInType, timezone: string | null) {
   const rows = await db
     .select({ createdAt: checkIns.createdAt })
     .from(checkIns)
     .where(and(eq(checkIns.userId, userId), eq(checkIns.type, type)));
 
-  return streakFromDayKeys(new Set(rows.map((row) => istDayKey(row.createdAt))));
+  return streakFromDayKeys(new Set(rows.map((row) => userDayKey(timezone, row.createdAt))), timezone);
 }
 
-export async function getStreaks(userIds: string[], type: CheckInType) {
+export async function getStreaks(userIds: string[], type: CheckInType, timezoneByUserId: Map<string, string>) {
   const streaks = new Map<string, number>();
   if (userIds.length === 0) return streaks;
 
@@ -221,12 +232,15 @@ export async function getStreaks(userIds: string[], type: CheckInType) {
   const dayKeysByUser = new Map<string, Set<string>>();
   for (const row of rows) {
     const dayKeys = dayKeysByUser.get(row.userId) ?? new Set<string>();
-    dayKeys.add(istDayKey(row.createdAt));
+    dayKeys.add(userDayKey(timezoneByUserId.get(row.userId) ?? null, row.createdAt));
     dayKeysByUser.set(row.userId, dayKeys);
   }
 
   for (const userId of userIds) {
-    streaks.set(userId, streakFromDayKeys(dayKeysByUser.get(userId) ?? new Set()));
+    streaks.set(
+      userId,
+      streakFromDayKeys(dayKeysByUser.get(userId) ?? new Set(), timezoneByUserId.get(userId) ?? null),
+    );
   }
   return streaks;
 }
@@ -235,12 +249,13 @@ export async function getStreaks(userIds: string[], type: CheckInType) {
 // logging a check-in isn't enough on its own. dailyTargetsByUser must already have a default
 // filled in per user; this function doesn't know about any fallback target. asOf bounds the rows
 // to createdAt < asOf AND seeds the streak walk there (both are required together — otherwise a
-// check-in logged just after asOf, on the same IST calendar day, would wrongly count toward a
-// streak computed "as of" that day).
+// check-in logged just after asOf, on the same calendar day, would wrongly count toward a streak
+// computed "as of" that day).
 export async function getStepGoalStreaks(
   userIds: string[],
   dailyTargetsByUser: Map<string, number>,
   asOf: Date = new Date(),
+  timezoneByUserId: Map<string, string>,
 ) {
   const streaks = new Map<string, number>();
   if (userIds.length === 0) return streaks;
@@ -255,12 +270,15 @@ export async function getStepGoalStreaks(
     const { count } = row.value as StepsCheckInValue;
     if (count < (dailyTargetsByUser.get(row.userId) ?? Infinity)) continue;
     const dayKeys = dayKeysByUser.get(row.userId) ?? new Set<string>();
-    dayKeys.add(istDayKey(row.createdAt));
+    dayKeys.add(userDayKey(timezoneByUserId.get(row.userId) ?? null, row.createdAt));
     dayKeysByUser.set(row.userId, dayKeys);
   }
 
   for (const userId of userIds) {
-    streaks.set(userId, streakFromDayKeys(dayKeysByUser.get(userId) ?? new Set(), asOf));
+    streaks.set(
+      userId,
+      streakFromDayKeys(dayKeysByUser.get(userId) ?? new Set(), timezoneByUserId.get(userId) ?? null, asOf),
+    );
   }
   return streaks;
 }
