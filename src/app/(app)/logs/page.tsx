@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ProgressRing } from "@/components/ui/progress-ring";
@@ -11,18 +10,19 @@ import {
 import { getFoodPhotoUrls } from "@/features/check-ins/types";
 import type { FoodCheckInValue, GymCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
 import { getUserGoals } from "@/features/goals";
+import { getOrSyncCurrentUser } from "@/lib/current-user";
 
 export default async function LogsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const user = await getOrSyncCurrentUser();
+  if (!user) redirect("/sign-in");
 
   const [gymCheckIn, stepsCheckIn, foodCheckIn, gymStreak, weeklyGymCount, goals] = await Promise.all([
-    getTodaysCheckIn(userId, "gym"),
-    getTodaysCheckIn(userId, "steps"),
-    getTodaysCheckIn(userId, "food"),
-    getUserStreak(userId, "gym"),
-    getUserWeeklyCount(userId, "gym"),
-    getUserGoals(userId),
+    getTodaysCheckIn(user.id, "gym", user.timezone),
+    getTodaysCheckIn(user.id, "steps", user.timezone),
+    getTodaysCheckIn(user.id, "food", user.timezone),
+    getUserStreak(user.id, "gym", user.timezone),
+    getUserWeeklyCount(user.id, "gym"),
+    getUserGoals(user.id),
   ]);
 
   const gymValue = gymCheckIn?.value as GymCheckInValue | undefined;
@@ -38,7 +38,12 @@ export default async function LogsPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-8">
       <section className="flex flex-col gap-5 rounded-xl border border-surface-border bg-surface p-5">
         <p className="text-sm font-semibold text-foreground-secondary">
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            timeZone: user.timezone,
+          })}
         </p>
 
         <div className="flex items-center justify-between gap-4">

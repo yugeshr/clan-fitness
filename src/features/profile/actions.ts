@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
+import { isValidTimeZone } from "@/lib/timezone-date";
 import type { Gender, UnitsPreference } from "./types";
 
 export type ProfileDetailsActionState = { error?: string } | undefined;
@@ -60,4 +61,13 @@ export async function updateProfileDetails(
     .where(eq(users.id, user.id));
 
   revalidatePath("/profile");
+}
+
+// Silent background correction (see TimezoneSync.tsx), not a user-facing save — no revalidation,
+// the next request just picks up the corrected value.
+export async function syncTimezone(timezone: string) {
+  const user = await getOrSyncCurrentUser();
+  if (!user || !isValidTimeZone(timezone) || user.timezone === timezone) return;
+
+  await db.update(users).set({ timezone }).where(eq(users.id, user.id));
 }

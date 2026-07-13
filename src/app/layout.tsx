@@ -5,6 +5,7 @@ import { dark } from "@clerk/themes";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ServiceWorkerRegistration } from "@/components/shared/ServiceWorkerRegistration";
+import { TimezoneSync } from "@/components/shared/TimezoneSync";
 import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -72,6 +73,7 @@ export default function RootLayout({
         <body className="min-h-full flex flex-col font-sans">
           {children}
           <ServiceWorkerRegistration />
+          <TimezoneSync />
           <Toaster />
           <Analytics />
           <SpeedInsights />
