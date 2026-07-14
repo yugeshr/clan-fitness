@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function BottomSheet({
   open,
@@ -43,13 +44,11 @@ export function BottomSheet({
     return () => clearTimeout(timeout);
   }, [open]);
 
+  useScrollLock(mounted);
+
   useEffect(() => {
     if (!mounted) return;
-    document.body.style.overflow = "hidden";
     headingRef.current?.focus();
-    return () => {
-      document.body.style.overflow = "";
-    };
   }, [mounted]);
 
   useEffect(() => {

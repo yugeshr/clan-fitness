@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function ImageLightbox({
   images,
@@ -47,13 +48,11 @@ export function ImageLightbox({
     return () => clearTimeout(timeout);
   }, [open]);
 
+  useScrollLock(mounted);
+
   useEffect(() => {
     if (!mounted) return;
-    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
-    return () => {
-      document.body.style.overflow = "";
-    };
   }, [mounted]);
 
   // Positions the track at the tapped photo the instant the lightbox opens — no scroll animation,
