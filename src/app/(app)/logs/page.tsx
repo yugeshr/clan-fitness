@@ -21,7 +21,7 @@ export default async function LogsPage() {
     getTodaysCheckIn(user.id, "steps", user.timezone),
     getTodaysCheckIn(user.id, "food", user.timezone),
     getUserStreak(user.id, "gym", user.timezone),
-    getUserWeeklyCount(user.id, "gym"),
+    getUserWeeklyCount(user.id, "gym", user.timezone),
     getUserGoals(user.id),
   ]);
 

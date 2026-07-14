@@ -8,9 +8,9 @@ import {
   getUsersLoggedToday,
   startOfMonth,
   startOfToday,
-  startOfWeek,
   startOfYesterday,
 } from "@/features/check-ins";
+import { startOfUserWeek } from "@/lib/timezone-date";
 import {
   ClanLeaderboardSection,
   ClanMembersSection,
@@ -35,9 +35,10 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
   const membership = members.find((m) => m.user.id === userId);
   if (!clan || !membership) notFound();
 
+  const viewerTimezone = membership.user.timezone;
   const memberIds = members.map((m) => m.user.id);
   const [loggedToday, gymGoals, stepsGoals] = await Promise.all([
-    getUsersLoggedToday(memberIds),
+    getUsersLoggedToday(memberIds, viewerTimezone),
     getGoalsForUsers(memberIds, "gym"),
     getGoalsForUsers(memberIds, "steps"),
   ]);
@@ -56,25 +57,25 @@ export default async function ManageClanPage({ params }: { params: Promise<{ cla
   // genuine historical snapshot (as it stood before anything logged today), not a mix of
   // yesterday's counts with today's live streak.
   const now = new Date();
-  const daysInCurrentMonth = daysInMonth(now);
+  const daysInCurrentMonth = daysInMonth(viewerTimezone, now);
 
   const [todayBoard, yesterdayBoard, weekBoard, monthBoard] = await Promise.all([
-    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfToday(now), end: now }, 1),
+    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfToday(viewerTimezone, now), end: now }, 1),
     computeLeaderboard(
       members,
       config,
       stepsGoals,
       gymGoals,
-      { start: startOfYesterday(now), end: startOfToday(now) },
+      { start: startOfYesterday(viewerTimezone, now), end: startOfToday(viewerTimezone, now) },
       1,
     ),
-    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfWeek(now), end: now }, 7),
+    computeLeaderboard(members, config, stepsGoals, gymGoals, { start: startOfUserWeek(viewerTimezone, now), end: now }, 7),
     computeLeaderboard(
       members,
       config,
       stepsGoals,
       gymGoals,
-      { start: startOfMonth(now), end: now },
+      { start: startOfMonth(viewerTimezone, now), end: now },
       daysInCurrentMonth,
     ),
   ]);

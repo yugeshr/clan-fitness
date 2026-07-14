@@ -10,6 +10,8 @@ export {
   getStepGoalStreaks,
   getStreaks,
   getTodaysCheckIn,
+  getUserCheckInHistory,
+  getUserStepsByDay,
   getUserStreak,
   getUsersLoggedToday,
   getUserWeeklyCount,
@@ -20,6 +22,8 @@ export {
   startOfWeek,
   startOfYesterday,
 } from "./queries";
-export type { DateWindow, FeedRow } from "./queries";
+export type { CheckInHistoryFilter, CheckInHistoryRow, DateWindow, FeedRow } from "./queries";
+export { getFilteredHistory } from "./history-actions";
+export type { HistoryDayGroup, HistoryRange } from "./history-actions";
 export { DailyLogForm } from "./components/DailyLogForm";
 export type { CheckInType, FoodStatus } from "./types";

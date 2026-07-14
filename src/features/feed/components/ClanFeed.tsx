@@ -5,6 +5,7 @@ import { getCheckInById, getClanFeed } from "@/features/check-ins";
 import { getClanMembers } from "@/features/clans";
 import { getReactionsForCheckIns, getReactionsForSystemPosts } from "@/features/reactions";
 import { getSystemPostsForClan } from "@/features/system-posts";
+import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { FeedList } from "./FeedList";
 
 export async function ClanFeed({
@@ -24,6 +25,11 @@ export async function ClanFeed({
   // whole history is fetched up front rather than dual-cursor-paginated alongside check-ins.
   const membersPromise = providedMembers ? Promise.resolve(providedMembers) : getClanMembers(clanId);
   const systemPostsPromise = getSystemPostsForClan(clanId);
+  // Needed before getClanFeed below (its pagination-safety trim is keyed by the viewer's own
+  // timezone, to stay consistent with how the feed is grouped for display) — getOrSyncCurrentUser
+  // is request-cached, so this doesn't cost an extra query beyond what Promise.all below already does.
+  const viewer = await getOrSyncCurrentUser();
+  const viewerTimezone = viewer?.timezone ?? null;
 
   // A notification can deep-link to a check-in older than what the default (latest) page would
   // include. Anchor the very first page just after it instead, so it's guaranteed to be present
@@ -33,10 +39,10 @@ export async function ClanFeed({
   if (highlightCheckInId) {
     const target = await getCheckInById(highlightCheckInId);
     feed = target
-      ? await getClanFeed(clanId, new Date(target.createdAt.getTime() + 1))
-      : await getClanFeed(clanId);
+      ? await getClanFeed(clanId, viewerTimezone, new Date(target.createdAt.getTime() + 1))
+      : await getClanFeed(clanId, viewerTimezone);
   } else {
-    feed = await getClanFeed(clanId);
+    feed = await getClanFeed(clanId, viewerTimezone);
   }
   const { rows, hasMore } = feed;
 
@@ -68,6 +74,7 @@ export async function ClanFeed({
     <FeedList
       clanId={clanId}
       currentUserId={userId}
+      viewerTimezone={viewerTimezone}
       clanMembers={clanMembers}
       initialRows={rows}
       initialSystemPosts={systemPosts}
