@@ -225,7 +225,7 @@ export async function nudgeMember(clanId: string, targetUserId: string): Promise
   const target = await getClanMembership(targetUserId, clanId);
   if (!target) return { error: "That user is not a member of this clan." };
 
-  const loggedToday = await getUsersLoggedToday([user.id, targetUserId]);
+  const loggedToday = await getUsersLoggedToday([user.id, targetUserId], user.timezone);
   if (!loggedToday.has(user.id)) return { error: "Log today before nudging someone else." };
   if (loggedToday.has(targetUserId)) return { error: "They've already logged today." };
 

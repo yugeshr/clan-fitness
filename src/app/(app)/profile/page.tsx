@@ -1,24 +1,43 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { Tabs, type TabItem } from "@/components/ui/tabs";
-import { getUserGoals, GoalsForm } from "@/features/goals";
-import { PushNotificationManager } from "@/features/notifications";
-import { calculateAge, calculateBmi, getProfileDetails, ProfileDetailsForm } from "@/features/profile";
+import { Avatar } from "@/components/shared/Avatar";
+import { getFilteredHistory, getUserStepsByDay } from "@/features/check-ins";
+import { getUserGoals } from "@/features/goals";
+import { ActivityHeatmap, calculateAge, calculateBmi, HistorySection, ProfileSettingsSheet } from "@/features/profile";
+import type { HeatmapDay } from "@/features/profile";
+import { getOrSyncCurrentUser } from "@/lib/current-user";
+import { getUserMonthDays, startOfUserDay, startOfUserMonth } from "@/lib/timezone-date";
 
 const CM_PER_INCH = 2.54;
 const KG_PER_LB = 0.453592;
 
 export default async function ProfilePage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const user = await getOrSyncCurrentUser();
+  if (!user) redirect("/sign-in");
 
-  const [goals, details] = await Promise.all([getUserGoals(userId), getProfileDetails(userId)]);
+  const now = new Date();
+  const monthStart = startOfUserMonth(user.timezone, now);
+  const tomorrowStart = new Date(startOfUserDay(user.timezone, now).getTime() + 24 * 60 * 60 * 1000);
+
+  const [goals, stepsByDay, history] = await Promise.all([
+    getUserGoals(user.id),
+    getUserStepsByDay(user.id, { start: monthStart, end: tomorrowStart }, user.timezone),
+    getFilteredHistory("all", "30d"),
+  ]);
+
   const gymGoal = goals.find((g) => g.type === "gym");
   const stepsGoal = goals.find((g) => g.type === "steps");
+  const dailyStepsTarget = stepsGoal?.targetValue ?? 8000;
 
-  const unitsPreference = details?.unitsPreference ?? "metric";
-  const heightCm = details?.heightCm ?? undefined;
-  const weightKg = details?.weightKg ? Number(details.weightKg) : undefined;
+  const heatmapDays: HeatmapDay[] = getUserMonthDays(user.timezone, now).map((day) => {
+    if (day.date.getTime() > now.getTime()) return { ...day, state: "future" };
+    const steps = stepsByDay.get(day.dayKey);
+    if (steps === undefined) return { ...day, state: "none" };
+    return { ...day, state: steps >= dailyStepsTarget ? "met" : "under" };
+  });
+
+  const unitsPreference = user.unitsPreference;
+  const heightCm = user.heightCm ?? undefined;
+  const weightKg = user.weightKg ? Number(user.weightKg) : undefined;
   const heightDisplay =
     heightCm === undefined
       ? undefined
@@ -32,47 +51,34 @@ export default async function ProfilePage() {
         ? Math.round(weightKg / KG_PER_LB)
         : weightKg;
 
-  const age = details?.dateOfBirth ? calculateAge(details.dateOfBirth) : undefined;
+  const age = user.dateOfBirth ? calculateAge(user.dateOfBirth) : undefined;
   const bmi = heightCm && weightKg ? calculateBmi(heightCm, weightKg) : undefined;
-
-  const tabs: TabItem[] = [
-    {
-      id: "goals",
-      label: "Goals",
-      content: <GoalsForm gymTarget={gymGoal?.targetValue} stepsTarget={stepsGoal?.targetValue} />,
-    },
-    {
-      id: "details",
-      label: "Details",
-      content: (
-        <>
-          <p className="text-xs text-foreground-tertiary">Only visible to you.</p>
-          {(age !== undefined || bmi !== undefined) && (
-            <p className="text-sm text-foreground-secondary">
-              {age !== undefined && <>Age {age}</>}
-              {age !== undefined && bmi !== undefined && " · "}
-              {bmi !== undefined && <>BMI {bmi.toFixed(1)}</>}
-            </p>
-          )}
-          <ProfileDetailsForm
-            key={[heightDisplay, weightDisplay, details?.dateOfBirth, details?.gender, unitsPreference, details?.bio].join("|")}
-            heightDisplay={heightDisplay}
-            weightDisplay={weightDisplay}
-            dateOfBirth={details?.dateOfBirth ?? undefined}
-            gender={details?.gender ?? undefined}
-            unitsPreference={unitsPreference}
-            bio={details?.bio ?? undefined}
-          />
-        </>
-      ),
-    },
-    { id: "settings", label: "Settings", content: <PushNotificationManager /> },
-  ];
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-6 py-8">
-      <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-      <Tabs tabs={tabs} />
+      <div className="flex items-center gap-3">
+        <Avatar src={user.avatarUrl} name={user.name} size={56} />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-bold text-foreground">{user.name}</h1>
+          {user.bio && <p className="truncate text-sm text-foreground-secondary">{user.bio}</p>}
+        </div>
+        <ProfileSettingsSheet
+          gymTarget={gymGoal?.targetValue}
+          stepsTarget={stepsGoal?.targetValue}
+          age={age}
+          bmi={bmi}
+          heightDisplay={heightDisplay}
+          weightDisplay={weightDisplay}
+          dateOfBirth={user.dateOfBirth ?? undefined}
+          gender={user.gender ?? undefined}
+          unitsPreference={unitsPreference}
+          bio={user.bio ?? undefined}
+        />
+      </div>
+
+      <ActivityHeatmap days={heatmapDays} />
+
+      <HistorySection initialDays={history.days} initialHasMore={history.hasMore} timezone={user.timezone} />
     </div>
   );
 }

@@ -29,6 +29,7 @@ const ImageLightbox = dynamic(() =>
 export function FeedList({
   clanId,
   currentUserId,
+  viewerTimezone,
   clanMembers,
   initialRows,
   initialSystemPosts,
@@ -39,6 +40,7 @@ export function FeedList({
 }: {
   clanId: string;
   currentUserId?: string | null;
+  viewerTimezone: string | null;
   clanMembers?: ClanMemberOption[];
   initialRows: FeedRow[];
   initialSystemPosts: SystemPostForFeed[];
@@ -87,14 +89,14 @@ export function FeedList({
 
   // System posts aren't paginated (initialSystemPosts is a clan's whole history, fetched once —
   // see getSystemPostsForClan), so they don't need their own state; only rows grows on "load more".
-  const sections = groupByDay(mergeFeedCards(groupByUserAndDay(rows), initialSystemPosts));
+  const sections = groupByDay(mergeFeedCards(groupByUserAndDay(rows, viewerTimezone), initialSystemPosts, viewerTimezone));
 
   return (
     <div className="flex flex-col gap-6">
       {sections.map((section) => (
         <section key={section.day} className="flex flex-col gap-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground-tertiary">
-            {formatDayLabel(section.day)}
+            {formatDayLabel(section.day, viewerTimezone)}
           </h3>
           <ul className="flex flex-col gap-3">
             {section.cards.map((card) => {

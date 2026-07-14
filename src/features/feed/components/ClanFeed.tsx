@@ -5,6 +5,7 @@ import { getCheckInById, getClanFeed } from "@/features/check-ins";
 import { getClanMembers } from "@/features/clans";
 import { getReactionsForCheckIns, getReactionsForSystemPosts } from "@/features/reactions";
 import { getSystemPostsForClan } from "@/features/system-posts";
+import { getOrSyncCurrentUser } from "@/lib/current-user";
 import { FeedList } from "./FeedList";
 
 export async function ClanFeed({
@@ -24,6 +25,7 @@ export async function ClanFeed({
   // whole history is fetched up front rather than dual-cursor-paginated alongside check-ins.
   const membersPromise = providedMembers ? Promise.resolve(providedMembers) : getClanMembers(clanId);
   const systemPostsPromise = getSystemPostsForClan(clanId);
+  const viewerPromise = getOrSyncCurrentUser();
 
   // A notification can deep-link to a check-in older than what the default (latest) page would
   // include. Anchor the very first page just after it instead, so it's guaranteed to be present
@@ -55,12 +57,13 @@ export async function ClanFeed({
 
   const checkInIds = rows.map((row) => row.checkIn.id);
   const systemPostIds = systemPosts.map((post) => post.id);
-  const [reactions, comments, systemPostReactions, systemPostComments, members] = await Promise.all([
+  const [reactions, comments, systemPostReactions, systemPostComments, members, viewer] = await Promise.all([
     userId ? getReactionsForCheckIns(checkInIds, clanId, userId) : Promise.resolve({}),
     getCommentsForCheckIns(checkInIds, clanId),
     userId ? getReactionsForSystemPosts(systemPostIds, clanId, userId) : Promise.resolve({}),
     getCommentsForSystemPosts(systemPostIds, clanId),
     membersPromise,
+    viewerPromise,
   ]);
   const clanMembers = members.map((m) => ({ id: m.user.id, name: m.user.name, avatarUrl: m.user.avatarUrl }));
 
@@ -68,6 +71,7 @@ export async function ClanFeed({
     <FeedList
       clanId={clanId}
       currentUserId={userId}
+      viewerTimezone={viewer?.timezone ?? null}
       clanMembers={clanMembers}
       initialRows={rows}
       initialSystemPosts={systemPosts}

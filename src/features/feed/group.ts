@@ -1,7 +1,7 @@
 import type { FeedRow } from "@/features/check-ins";
 import type { FoodCheckInValue, FoodStatus, GymCheckInValue, StepsCheckInValue } from "@/features/check-ins/types";
 import type { SystemPostForFeed } from "@/features/system-posts";
-import { istDayKey } from "@/lib/ist-date";
+import { userDayKey } from "@/lib/timezone-date";
 
 export const TYPE_ICON: Record<string, string> = { gym: "💪", steps: "👟", food: "🥗" };
 
@@ -86,14 +86,14 @@ export function describeCheckIn(type: string, value: unknown, checkInId: string)
   }
 }
 
-export function groupByUserAndDay(rows: FeedRow[]) {
+export function groupByUserAndDay(rows: FeedRow[], timezone: string | null | undefined) {
   const groups = new Map<
     string,
     { kind: "checkIn"; user: FeedRow["user"]; day: string; latestAt: Date; entries: FeedRow["checkIn"][] }
   >();
 
   for (const { checkIn, user } of rows) {
-    const day = istDayKey(checkIn.createdAt);
+    const day = userDayKey(timezone, checkIn.createdAt);
     const key = `${user.id}:${day}`;
     const group = groups.get(key);
     if (group) {
@@ -115,10 +115,10 @@ export type FeedCard = DayGroup | SystemPostFeedItem;
 
 // Weekly system posts aren't paginated (see getSystemPostsForClan) — a clan's whole history is
 // merged in up front rather than dual-cursor-paginated alongside check-ins.
-export function mergeFeedCards(checkInGroups: DayGroup[], systemPosts: SystemPostForFeed[]): FeedCard[] {
+export function mergeFeedCards(checkInGroups: DayGroup[], systemPosts: SystemPostForFeed[], timezone: string | null | undefined): FeedCard[] {
   const systemPostItems: SystemPostFeedItem[] = systemPosts.map((post) => ({
     kind: "systemPost",
-    day: istDayKey(post.createdAt),
+    day: userDayKey(timezone, post.createdAt),
     latestAt: post.createdAt,
     post,
   }));
@@ -138,10 +138,10 @@ export function groupByDay(cards: FeedCard[]) {
   return sections;
 }
 
-export function formatDayLabel(day: string) {
+export function formatDayLabel(day: string, timezone: string | null | undefined) {
   const now = new Date();
-  const today = istDayKey(now);
-  const yesterday = istDayKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const today = userDayKey(timezone, now);
+  const yesterday = userDayKey(timezone, new Date(now.getTime() - 24 * 60 * 60 * 1000));
   if (day === today) return "Today";
   if (day === yesterday) return "Yesterday";
   return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric" });
