@@ -48,12 +48,19 @@ export function daysInMonth(timezone: string | null | undefined, now = new Date(
 // fixed clanId filter.
 //
 // Gym/steps/food are separate rows (see logDailyCheckIn's per-type upsert) and can be logged
-// hours apart on the same IST day — a plain row-count LIMIT can cut a page off mid-person's-day,
+// hours apart on the same day — a plain row-count LIMIT can cut a page off mid-person's-day,
 // showing e.g. their food+photos but not the gym check-in from earlier that morning until the next
 // "Load more". Fetches one extra row past the page size to detect that, and trims the split-off
 // tail so a page's last (user, day) group is always either fully included or deferred whole to the
 // next page — never partial.
-export async function getClanFeed(clanId: string, before?: Date) {
+//
+// The trim uses the VIEWER's timezone (not each row's own author's) — day-grouping for display
+// (see feed/group.ts's groupByUserAndDay) is also keyed by the viewer's timezone, so the
+// pagination-safety boundary has to agree with that same reference. Using the author's own zone
+// here would let the two disagree whenever a poster and viewer are in different timezones: a
+// boundary "safe" per the author's day could still land mid-day from the viewer's perspective,
+// reintroducing a split display the trim is supposed to prevent.
+export async function getClanFeed(clanId: string, viewerTimezone: string | null | undefined, before?: Date) {
   const conditions = [
     eq(clanMemberships.clanId, clanId),
     eq(checkIns.visibility, "public_to_clan"),
@@ -75,7 +82,7 @@ export async function getClanFeed(clanId: string, before?: Date) {
 
   if (hasMore) {
     const dayGroupKey = (row: (typeof fetched)[number]) =>
-      `${row.checkIn.userId}:${userDayKey(row.user.timezone, row.checkIn.createdAt)}`;
+      `${row.checkIn.userId}:${userDayKey(viewerTimezone, row.checkIn.createdAt)}`;
     const boundaryKey = dayGroupKey(fetched[FEED_PAGE_SIZE]);
     while (rows.length > 0 && dayGroupKey(rows[rows.length - 1]) === boundaryKey) {
       rows.pop();
@@ -123,10 +130,10 @@ export async function getUsersLoggedToday(userIds: string[], timezone: string | 
   return new Set(rows.map((row) => row.userId));
 }
 
-// Uses the user's OWN timezone (unlike startOfToday/the rest of this file, which stay on the
-// shared IST reference for cross-member views) — this is what "today" means to *them* for the
-// purpose of "have I already logged this today," so a user whose local day rolls over hours away
-// from IST's doesn't get an attempted new check-in silently treated as an update to an earlier one.
+// Always the ACTOR's own timezone (never a viewer's — there's no viewer here, just the person
+// logging) — this is what "today" means to *them* for the purpose of "have I already logged this
+// today," so a user whose local day rolls over hours away from someone else's doesn't get an
+// attempted new check-in silently treated as an update to an earlier one.
 export async function getTodaysCheckIn(userId: string, type: CheckInType, timezone: string | null) {
   const [existing] = await db
     .select()
@@ -194,9 +201,10 @@ export async function getWeeklyStepsTotals(userIds: string[], { start, end = new
 // now") are unaffected. Callers computing a past week's streak (see getStepGoalStreaks) pass the
 // end of that week instead, so the walk-backward never considers days beyond it.
 //
-// Streaks use the PERSON'S OWN timezone (unlike getClanFeed's day-grouping above, or
-// startOfToday/startOfWeek/startOfMonth) — a streak is "did I show up on my own consecutive days,"
-// not a shared-clock comparison metric, so it should stay correct regardless of who's viewing it.
+// Streaks always use the PERSON'S OWN timezone, never a viewer's (unlike getClanFeed's
+// day-grouping, which is viewer-relative for display purposes) — a streak is "did I show up on my
+// own consecutive days," not a shared-clock comparison metric, so it should stay correct
+// regardless of who's looking at it.
 function streakFromDayKeys(dayKeys: Set<string>, timezone: string | null, asOf: Date = new Date()) {
   const cursor = startOfUserDay(timezone, asOf);
   if (!dayKeys.has(userDayKey(timezone, cursor))) {

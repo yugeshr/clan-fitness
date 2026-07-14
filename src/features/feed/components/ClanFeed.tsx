@@ -25,7 +25,11 @@ export async function ClanFeed({
   // whole history is fetched up front rather than dual-cursor-paginated alongside check-ins.
   const membersPromise = providedMembers ? Promise.resolve(providedMembers) : getClanMembers(clanId);
   const systemPostsPromise = getSystemPostsForClan(clanId);
-  const viewerPromise = getOrSyncCurrentUser();
+  // Needed before getClanFeed below (its pagination-safety trim is keyed by the viewer's own
+  // timezone, to stay consistent with how the feed is grouped for display) — getOrSyncCurrentUser
+  // is request-cached, so this doesn't cost an extra query beyond what Promise.all below already does.
+  const viewer = await getOrSyncCurrentUser();
+  const viewerTimezone = viewer?.timezone ?? null;
 
   // A notification can deep-link to a check-in older than what the default (latest) page would
   // include. Anchor the very first page just after it instead, so it's guaranteed to be present
@@ -35,10 +39,10 @@ export async function ClanFeed({
   if (highlightCheckInId) {
     const target = await getCheckInById(highlightCheckInId);
     feed = target
-      ? await getClanFeed(clanId, new Date(target.createdAt.getTime() + 1))
-      : await getClanFeed(clanId);
+      ? await getClanFeed(clanId, viewerTimezone, new Date(target.createdAt.getTime() + 1))
+      : await getClanFeed(clanId, viewerTimezone);
   } else {
-    feed = await getClanFeed(clanId);
+    feed = await getClanFeed(clanId, viewerTimezone);
   }
   const { rows, hasMore } = feed;
 
@@ -57,13 +61,12 @@ export async function ClanFeed({
 
   const checkInIds = rows.map((row) => row.checkIn.id);
   const systemPostIds = systemPosts.map((post) => post.id);
-  const [reactions, comments, systemPostReactions, systemPostComments, members, viewer] = await Promise.all([
+  const [reactions, comments, systemPostReactions, systemPostComments, members] = await Promise.all([
     userId ? getReactionsForCheckIns(checkInIds, clanId, userId) : Promise.resolve({}),
     getCommentsForCheckIns(checkInIds, clanId),
     userId ? getReactionsForSystemPosts(systemPostIds, clanId, userId) : Promise.resolve({}),
     getCommentsForSystemPosts(systemPostIds, clanId),
     membersPromise,
-    viewerPromise,
   ]);
   const clanMembers = members.map((m) => ({ id: m.user.id, name: m.user.name, avatarUrl: m.user.avatarUrl }));
 
@@ -71,7 +74,7 @@ export async function ClanFeed({
     <FeedList
       clanId={clanId}
       currentUserId={userId}
-      viewerTimezone={viewer?.timezone ?? null}
+      viewerTimezone={viewerTimezone}
       clanMembers={clanMembers}
       initialRows={rows}
       initialSystemPosts={systemPosts}

@@ -6,7 +6,7 @@ import { getClanFeed } from "@/features/check-ins";
 import { getClanMembership } from "@/features/clans";
 import { getReactionsForCheckIns } from "@/features/reactions";
 
-export async function loadMoreFeed(clanId: string, beforeIso: string) {
+export async function loadMoreFeed(clanId: string, beforeIso: string, viewerTimezone: string | null) {
   const { userId } = await auth();
   if (!userId) throw new Error("Not signed in.");
 
@@ -14,7 +14,7 @@ export async function loadMoreFeed(clanId: string, beforeIso: string) {
   // still gate the return on membership so an unauthorized caller never sees the fetched rows.
   const [membership, feed] = await Promise.all([
     getClanMembership(userId, clanId),
-    getClanFeed(clanId, new Date(beforeIso)),
+    getClanFeed(clanId, viewerTimezone, new Date(beforeIso)),
   ]);
   if (!membership) throw new Error("Not a member of this clan.");
 

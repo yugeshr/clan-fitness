@@ -75,7 +75,7 @@ export function FeedList({
 
     setLoading(true);
     try {
-      const page = await loadMoreFeed(clanId, cursor.toISOString());
+      const page = await loadMoreFeed(clanId, cursor.toISOString(), viewerTimezone);
       setRows((prev) => [...prev, ...page.rows]);
       setReactions((prev) => ({ ...prev, ...page.reactions }));
       setComments((prev) => ({ ...prev, ...page.comments }));
