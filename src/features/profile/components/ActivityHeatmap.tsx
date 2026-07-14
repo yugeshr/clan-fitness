@@ -2,9 +2,6 @@ export type HeatmapDayState = "met" | "under" | "none" | "future";
 export type HeatmapDay = { dayKey: string; date: Date; dayOfWeek: number; state: HeatmapDayState };
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-// Every-other-row labeling, matching the sparse convention GitHub's own contribution graph uses —
-// labeling all 7 rows reads as noisy at this cell size.
-const LABELED_ROWS = new Set([1, 3, 5]);
 
 const STATE_CLASS: Record<HeatmapDayState, string> = {
   met: "bg-accent",
@@ -39,9 +36,9 @@ export function ActivityHeatmap({ days }: { days: HeatmapDay[] }) {
 
       <div className="flex gap-[3px] overflow-x-auto">
         <div className="flex flex-col gap-[3px] pr-1">
-          {DOW_LABELS.map((label, row) => (
+          {DOW_LABELS.map((label) => (
             <span key={label} className="flex h-3 items-center text-[10px] text-foreground-tertiary">
-              {LABELED_ROWS.has(row) ? label : ""}
+              {label}
             </span>
           ))}
         </div>
