@@ -64,10 +64,16 @@ export async function updateProfileDetails(
 }
 
 // Silent background correction (see TimezoneSync.tsx), not a user-facing save — no revalidation,
-// the next request just picks up the corrected value.
+// the next request just picks up the corrected value. Only ever fills in a *missing* timezone —
+// it must never overwrite an already-set one. Devices intermittently misreport their zone (seen
+// on iOS home-screen PWAs and some Android WebViews) and this fires on every cold app-open; a
+// silent mid-day flip shifts getTodaysCheckIn's day boundary, which can make an update-in-place
+// submission miss its existing row and insert a duplicate instead. There's no manual "change
+// timezone" field yet, so a genuine permanent relocation won't self-correct — acceptable trade-off
+// against actively duplicating people's posts.
 export async function syncTimezone(timezone: string) {
   const user = await getOrSyncCurrentUser();
-  if (!user || !isValidTimeZone(timezone) || user.timezone === timezone) return;
+  if (!user || !isValidTimeZone(timezone) || user.timezone !== null) return;
 
   await db.update(users).set({ timezone }).where(eq(users.id, user.id));
 }
