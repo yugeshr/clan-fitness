@@ -1,19 +1,22 @@
 import "server-only";
 
-import { currentUser } from "@clerk/nextjs/server";
 import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { getOrSyncCurrentUser } from "@/lib/current-user";
 
 // No roles/permissions system — the admin dashboard is authorized to a fixed list of emails,
 // checked directly rather than via an env var. An env var has to be kept correctly set in every
 // environment it runs in, with no way to notice if it silently isn't; this can't drift.
 const ADMIN_EMAILS = ["yugeshr16@gmail.com", "balakristarun@gmail.com"];
 
+// Goes through getOrSyncCurrentUser (our own already-synced DB row) rather than calling Clerk's
+// currentUser() API directly here — that used to be a second, separate Clerk API call on top of
+// the one every other page/action already makes, doubling this codebase's exposure to Clerk's
+// rate limit for zero benefit (email doesn't change per-request).
 export async function isAdminUser(): Promise<boolean> {
-  const user = await currentUser();
-  const email = user?.emailAddresses[0]?.emailAddress;
-  return !!email && ADMIN_EMAILS.includes(email);
+  const user = await getOrSyncCurrentUser();
+  return !!user?.email && ADMIN_EMAILS.includes(user.email);
 }
 
 /** Every admin's own local `users` row id, for notifying all of them (e.g. new feedback messages). */
