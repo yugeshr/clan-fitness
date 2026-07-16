@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { feedbackMessages } from "@/db/schema";
-import { getAdminUserId, isAdminUser } from "@/features/admin";
+import { getAdminUserIds, isAdminUser } from "@/features/admin";
 import { notifyUser } from "@/features/notifications/send";
 import { getFeedbackThread } from "./queries";
 import { FEEDBACK_MESSAGE_MAX_LENGTH } from "./types";
@@ -44,15 +44,17 @@ export async function sendFeedbackMessage(
   await db.insert(feedbackMessages).values({ userId: targetUserId, sender, body });
 
   if (sender === "user") {
-    const adminId = await getAdminUserId();
-    if (adminId) {
-      await notifyUser(adminId, {
-        type: "feedback",
-        title: "New feedback message",
-        body: preview(body),
-        url: `/admin/feedback/${targetUserId}`,
-      });
-    }
+    const adminIds = await getAdminUserIds();
+    await Promise.all(
+      adminIds.map((adminId) =>
+        notifyUser(adminId, {
+          type: "feedback",
+          title: "New feedback message",
+          body: preview(body),
+          url: `/admin/feedback/${targetUserId}`,
+        }),
+      ),
+    );
   } else {
     await notifyUser(targetUserId, {
       type: "feedback",
