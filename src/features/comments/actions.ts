@@ -7,8 +7,8 @@ import { db } from "@/db";
 import { checkIns, comments } from "@/db/schema";
 import { getClanMembers, getClanMembership } from "@/features/clans/queries";
 import { notifyUser } from "@/features/notifications/send";
+import { extractMentionedUserIds, mentionsToPlainText } from "@/lib/mentions";
 import { getOrSyncCurrentUser } from "@/lib/current-user";
-import { extractMentionedUserIds, mentionsToPlainText } from "./mentions";
 import { COMMENT_MAX_LENGTH, COMMENT_MAX_RAW_LENGTH } from "./types";
 import type { CommentWithUser } from "./queries";
 

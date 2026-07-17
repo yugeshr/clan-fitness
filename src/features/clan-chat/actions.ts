@@ -6,8 +6,9 @@ import { db } from "@/db";
 import { clanMessages } from "@/db/schema";
 import { getClanMembers, getClanMembership } from "@/features/clans/queries";
 import { notifyUser } from "@/features/notifications/send";
+import { extractMentionedUserIds, mentionsToPlainText } from "@/lib/mentions";
 import { getClanMessages } from "./queries";
-import { CLAN_MESSAGE_MAX_LENGTH } from "./types";
+import { CLAN_MESSAGE_MAX_LENGTH, CLAN_MESSAGE_MAX_RAW_LENGTH } from "./types";
 
 export type ClanChatActionState = { error?: string; sent?: boolean } | undefined;
 
@@ -38,23 +39,28 @@ export async function sendClanMessage(
 
   const body = String(formData.get("body") ?? "").trim();
   if (!body) return { error: "Message can't be empty." };
-  if (body.length > CLAN_MESSAGE_MAX_LENGTH) return { error: "Message is too long." };
+  if (body.length > CLAN_MESSAGE_MAX_RAW_LENGTH) return { error: "Message is too long." };
+  const displayText = mentionsToPlainText(body);
+  if (displayText.length > CLAN_MESSAGE_MAX_LENGTH) return { error: "Message is too long." };
 
   await db.insert(clanMessages).values({ clanId, userId: access.userId, body });
 
   const members = await getClanMembers(clanId);
   const author = members.find((m) => m.user.id === access.userId);
+  const memberIds = new Set(members.map((m) => m.user.id));
+  const mentionedIds = new Set(
+    extractMentionedUserIds(body).filter((id) => memberIds.has(id) && id !== access.userId),
+  );
   const recipientIds = members.map((m) => m.user.id).filter((id) => id !== access.userId);
+  const url = `/clans/${clanId}/chat`;
+
   await Promise.all(
     recipientIds.map((userId) =>
       notifyUser(
         userId,
-        {
-          type: "clan_message",
-          title: `${author?.user.name ?? "Someone"} in clan chat`,
-          body: preview(body),
-          url: `/clans/${clanId}/chat`,
-        },
+        mentionedIds.has(userId)
+          ? { type: "mention", title: `${author?.user.name ?? "Someone"} mentioned you in clan chat`, body: preview(displayText), url }
+          : { type: "clan_message", title: `${author?.user.name ?? "Someone"} in clan chat`, body: preview(displayText), url },
         { skipEmail: true },
       ),
     ),
