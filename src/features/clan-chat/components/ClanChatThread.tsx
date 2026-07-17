@@ -81,7 +81,7 @@ export function ClanChatThread({
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      <div ref={listRef} className="flex max-h-[70vh] min-h-[50vh] flex-col gap-3 overflow-y-auto">
+      <div ref={listRef} className="flex flex-col gap-3 overflow-y-auto pb-24">
         {messages.length === 0 && (
           <p className="py-8 text-center text-sm text-foreground-tertiary">
             No messages yet — say hi to your clan.
@@ -113,19 +113,25 @@ export function ClanChatThread({
         })}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <Input
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          maxLength={CLAN_MESSAGE_MAX_LENGTH}
-          placeholder="Type a message..."
-          aria-label="Message"
-        />
-        <Button type="submit" disabled={pending || !text.trim()}>
-          Send
-        </Button>
-      </form>
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {/* Fixed above BottomNav on mobile (BottomNav is h-16 + its own safe-area padding, hidden
+          from sm: up, matching the same bottom offset math used elsewhere — see toast.tsx). Inner
+          content re-applies the page's own max-w-2xl/px-6 since a fixed element spans the full
+          viewport width, unlike the normal-flow content around it. */}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 border-t border-surface-border bg-surface sm:bottom-0">
+        <form onSubmit={handleSubmit} className="mx-auto flex max-w-2xl items-center gap-2 px-6 py-3">
+          <Input
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            maxLength={CLAN_MESSAGE_MAX_LENGTH}
+            placeholder="Type a message..."
+            aria-label="Message"
+          />
+          <Button type="submit" disabled={pending || !text.trim()}>
+            Send
+          </Button>
+        </form>
+        {error && <p className="mx-auto max-w-2xl px-6 pb-2 text-xs text-danger">{error}</p>}
+      </div>
     </div>
   );
 }
