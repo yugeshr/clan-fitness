@@ -28,6 +28,7 @@ export default async function ClanChatPage({ params }: { params: Promise<{ clanI
       <ClanChatThread
         clanId={clanId}
         currentUser={{ id: user.id, name: user.name, avatarUrl: user.avatarUrl }}
+        members={members.map((m) => ({ id: m.user.id, name: m.user.name, avatarUrl: m.user.avatarUrl }))}
         initialMessages={messages}
       />
     </div>

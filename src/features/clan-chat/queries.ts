@@ -38,3 +38,13 @@ export async function getClanMessages(clanId: string): Promise<ClanMessageRow[]>
 
   return rows.reverse();
 }
+
+export async function getLatestClanMessageAt(clanId: string) {
+  const [row] = await db
+    .select({ createdAt: clanMessages.createdAt })
+    .from(clanMessages)
+    .where(eq(clanMessages.clanId, clanId))
+    .orderBy(desc(clanMessages.createdAt))
+    .limit(1);
+  return row?.createdAt ?? null;
+}

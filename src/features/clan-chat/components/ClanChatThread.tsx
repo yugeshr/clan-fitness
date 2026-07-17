@@ -2,13 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/shared/Avatar";
+import { MentionInput, type MentionInputHandle, type MentionMember } from "@/components/shared/MentionInput";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { parseCommentSegments } from "@/lib/mentions";
 import { fetchClanMessages, sendClanMessage } from "../actions";
 import type { ClanMessageRow } from "../queries";
 import { CLAN_MESSAGE_MAX_LENGTH } from "../types";
 
 const POLL_INTERVAL_MS = 2000;
+
+function chatSeenKey(clanId: string) {
+  return `clan-chat-seen:${clanId}`;
+}
 
 /**
  * "Near-zero latency" without any new realtime infrastructure: the sender's own message appears
@@ -19,10 +24,12 @@ const POLL_INTERVAL_MS = 2000;
 export function ClanChatThread({
   clanId,
   currentUser,
+  members,
   initialMessages,
 }: {
   clanId: string;
   currentUser: { id: string; name: string; avatarUrl: string | null };
+  members: MentionMember[];
   initialMessages: ClanMessageRow[];
 }) {
   const [messages, setMessages] = useState(initialMessages);
@@ -30,6 +37,7 @@ export function ClanChatThread({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const listRef = useRef<HTMLDivElement>(null);
+  const mentionInputRef = useRef<MentionInputHandle>(null);
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -43,10 +51,18 @@ export function ClanChatThread({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages.length]);
 
+  // Marks this clan's chat "seen" the moment it's opened — same "visiting the page marks it seen"
+  // model BottomNav already uses for the feed's own unread dot (see feedSeenKey there), just keyed
+  // per-feature so the two dots track independently.
+  useEffect(() => {
+    localStorage.setItem(chatSeenKey(clanId), new Date().toISOString());
+  }, [clanId]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const body = text.trim();
-    if (!body || pending) return;
+    const displayBody = text.trim();
+    if (!displayBody || pending) return;
+    const markupBody = mentionInputRef.current?.getMarkupValue().trim() || displayBody;
 
     const optimisticId = `optimistic-${crypto.randomUUID()}`;
     setMessages((prev) => [
@@ -57,16 +73,17 @@ export function ClanChatThread({
         userId: currentUser.id,
         authorName: currentUser.name,
         authorAvatarUrl: currentUser.avatarUrl,
-        body,
+        body: markupBody,
         createdAt: new Date(),
       },
     ]);
     setText("");
+    mentionInputRef.current?.reset();
     setPending(true);
     setError(undefined);
 
     const formData = new FormData();
-    formData.set("body", body);
+    formData.set("body", markupBody);
     const result = await sendClanMessage(clanId, undefined, formData);
     setPending(false);
 
@@ -105,7 +122,15 @@ export function ClanChatThread({
                       : "border border-surface-border bg-surface text-foreground-secondary"
                   }`}
                 >
-                  {message.body}
+                  {parseCommentSegments(message.body).map((segment, i) =>
+                    segment.type === "mention" ? (
+                      <span key={i} className={`font-semibold ${mine ? "" : "text-accent"}`}>
+                        @{segment.name}
+                      </span>
+                    ) : (
+                      <span key={i}>{segment.value}</span>
+                    ),
+                  )}
                 </p>
               </div>
             </div>
@@ -119,12 +144,14 @@ export function ClanChatThread({
           viewport width, unlike the normal-flow content around it. */}
       <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 border-t border-surface-border bg-surface sm:bottom-0">
         <form onSubmit={handleSubmit} className="mx-auto flex max-w-2xl items-center gap-2 px-6 py-3">
-          <Input
+          <MentionInput
+            ref={mentionInputRef}
             value={text}
-            onChange={(event) => setText(event.target.value)}
+            onChange={setText}
+            members={members}
+            excludeUserId={currentUser.id}
             maxLength={CLAN_MESSAGE_MAX_LENGTH}
-            placeholder="Type a message..."
-            aria-label="Message"
+            placeholder="Type a message... (@ to mention)"
           />
           <Button type="submit" disabled={pending || !text.trim()}>
             Send

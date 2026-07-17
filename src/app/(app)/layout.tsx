@@ -7,6 +7,7 @@ import { ClanSwitcher } from "@/components/shared/ClanSwitcher";
 import { InstallPrompt } from "@/components/shared/InstallPrompt";
 import { PullToRefresh } from "@/components/shared/PullToRefresh";
 import { getLatestCheckInAt } from "@/features/check-ins";
+import { ClanChatFab, getLatestClanMessageAt, type ClanChatEntry } from "@/features/clan-chat";
 import { getUserClans } from "@/features/clans";
 import { AutoEnableNotifications, NotificationBell } from "@/features/notifications";
 import { getUnreadNotificationCount } from "@/features/notifications/queries";
@@ -34,6 +35,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     })),
   ).catch((): FeedCheckInEntry[] => clans.map((clan) => ({ clanId: clan.id, latestCheckInAt: null })));
 
+  const latestClanMessageAtByClan: Promise<ClanChatEntry[]> = Promise.all(
+    clans.map(async (clan) => ({
+      clanId: clan.id,
+      latestMessageAt: await getLatestClanMessageAt(clan.id),
+    })),
+  ).catch((): ClanChatEntry[] => clans.map((clan) => ({ clanId: clan.id, latestMessageAt: null })));
+
   const initialUnreadCount: Promise<number> = getUnreadNotificationCount(userId).catch(() => 0);
 
   return (
@@ -57,6 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <BottomNav clans={clans} latestFeedCheckInAtByClan={latestFeedCheckInAtByClan} />
       <AutoEnableNotifications />
       <InstallPrompt />
+      <ClanChatFab clans={clans} latestClanMessageAtByClan={latestClanMessageAtByClan} />
     </div>
   );
 }
