@@ -2,7 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { getUserGoals, GoalsForm } from "@/features/goals";
-import { PushNotificationManager } from "@/features/notifications";
+import {
+  getNotificationPreferences,
+  NotificationPreferencesForm,
+  PushNotificationManager,
+} from "@/features/notifications";
 import { calculateAge, calculateBmi, getProfileDetails, ProfileDetailsForm } from "@/features/profile";
 
 const CM_PER_INCH = 2.54;
@@ -12,7 +16,11 @@ export default async function ProfilePage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [goals, details] = await Promise.all([getUserGoals(userId), getProfileDetails(userId)]);
+  const [goals, details, notificationPrefs] = await Promise.all([
+    getUserGoals(userId),
+    getProfileDetails(userId),
+    getNotificationPreferences(userId),
+  ]);
   const gymGoal = goals.find((g) => g.type === "gym");
   const stepsGoal = goals.find((g) => g.type === "steps");
 
@@ -66,7 +74,22 @@ export default async function ProfilePage() {
         </>
       ),
     },
-    { id: "settings", label: "Settings", content: <PushNotificationManager /> },
+    {
+      id: "settings",
+      label: "Settings",
+      content: (
+        <>
+          <PushNotificationManager />
+          <hr className="border-surface-border" />
+          <NotificationPreferencesForm
+            notifyOnComments={notificationPrefs?.notifyOnComments ?? true}
+            notifyOnMentions={notificationPrefs?.notifyOnMentions ?? true}
+            notifyOnReactions={notificationPrefs?.notifyOnReactions ?? true}
+            notifyOnCheckIns={notificationPrefs?.notifyOnCheckIns ?? true}
+          />
+        </>
+      ),
+    },
   ];
 
   return (

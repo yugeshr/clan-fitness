@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   date,
   index,
   integer,
@@ -37,6 +38,10 @@ export const users = pgTable("users", {
   gender: genderEnum("gender"),
   unitsPreference: unitsPreferenceEnum("units_preference").notNull().default("metric"),
   bio: text("bio"),
+  notifyOnComments: boolean("notify_on_comments").notNull().default(true),
+  notifyOnMentions: boolean("notify_on_mentions").notNull().default(true),
+  notifyOnReactions: boolean("notify_on_reactions").notNull().default(true),
+  notifyOnCheckIns: boolean("notify_on_check_ins").notNull().default(true),
 });
 
 export const clans = pgTable("clans", {
