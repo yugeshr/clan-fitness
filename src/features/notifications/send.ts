@@ -6,9 +6,18 @@ import { db } from "@/db";
 import { notifications, pushSubscriptions, users } from "@/db/schema";
 import { getPushSubscriptionsForUser } from "./queries";
 import { sendEmailNotification } from "./send-email";
-import type { NotificationPayload } from "./types";
+import type { NotificationPayload, NotificationType } from "./types";
 
 let vapidConfigured = false;
+
+// `missed_log` is intentionally absent: it's an unused/reserved type with no user-facing toggle,
+// so absence here means "always deliver" rather than risk silently suppressing a future type.
+const PREFERENCE_KEYS = {
+  comment: "notifyOnComments",
+  mention: "notifyOnMentions",
+  reaction: "notifyOnReactions",
+  check_in: "notifyOnCheckIns",
+} as const satisfies Partial<Record<NotificationType, string>>;
 
 /**
  * Configures web-push lazily, on first send, rather than at module load. VAPID env vars live
@@ -78,11 +87,23 @@ async function persistNotification(userId: string, payload: NotificationPayload)
  * email is a backup channel and the in-app record is the durable source of truth either way.
  */
 export async function notifyUser(userId: string, payload: NotificationPayload) {
-  const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+  const [user] = await db
+    .select({
+      email: users.email,
+      notifyOnComments: users.notifyOnComments,
+      notifyOnMentions: users.notifyOnMentions,
+      notifyOnReactions: users.notifyOnReactions,
+      notifyOnCheckIns: users.notifyOnCheckIns,
+    })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  const prefKey = PREFERENCE_KEYS[payload.type as keyof typeof PREFERENCE_KEYS];
+  const alertsEnabled = prefKey ? (user?.[prefKey] ?? true) : true;
 
   await Promise.all([
-    sendPushNotifications(userId, payload),
-    user?.email ? sendEmailNotification(user.email, payload) : Promise.resolve(),
+    alertsEnabled ? sendPushNotifications(userId, payload) : Promise.resolve(),
+    alertsEnabled && user?.email ? sendEmailNotification(user.email, payload) : Promise.resolve(),
     persistNotification(userId, payload),
   ]);
 }
